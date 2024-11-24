@@ -7,111 +7,64 @@ import json
 S3_BUCKET = "serp-app-bucket"
 ISEF_PROJECTS_FILE = "isef_projects.json"
 
-# Configure AWS credentials
 s3_client = boto3.client(
     "s3",
     aws_access_key_id="AKIAXQIQAJ6R6M4JCJO7",
     aws_secret_access_key="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"
 )
 
-# Use a smaller Hugging Face model like DistilGPT-2
+# Configure AI model
 tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
-tokenizer.pad_token = tokenizer.eos_token  # Ensure padding token is set
-
-generator = pipeline(
-    "text-generation",
-    model="distilgpt2",
-    tokenizer=tokenizer,
-    truncation=True,
-    padding=True
-)
+tokenizer.pad_token = tokenizer.eos_token
+generator = pipeline("text-generation", model="distilgpt2", tokenizer=tokenizer)
 
 app = Flask(__name__)
 current_evaluation = {}
+ISEF_PROJECTS = []
 
-def fetch_isef_data(query):
-    """
-    Fetch relevant ISEF database entries for a project idea to assist in evaluation.
-    """
+# Fetch the ISEF data from S3
+def fetch_isef_data_from_s3():
+    global ISEF_PROJECTS
     try:
+        print("Fetching ISEF data from S3...")
         response = s3_client.get_object(Bucket=S3_BUCKET, Key=ISEF_PROJECTS_FILE)
-        isef_projects = json.loads(response["Body"].read())
-        relevant_projects = [
-            project for project in isef_projects if query.lower() in project["title"].lower()
-        ]
-        return relevant_projects
+        data = json.loads(response["Body"].read())
+        ISEF_PROJECTS = [{"title": proj["title"], "abstract": proj["abstract"]} for proj in data]
+        print(f"Loaded {len(ISEF_PROJECTS)} projects from S3.")
     except Exception as e:
         print(f"Error fetching ISEF data: {e}")
-        return []
+        ISEF_PROJECTS = []
 
+# Evaluate Inquiry Question
 def evaluate_inquiry_question(inquiry_question):
-    """
-    Evaluate an inquiry question based on the ISEF database and provide scores for each criterion.
-    """
-    relevant_projects = fetch_isef_data(inquiry_question)
-    print(f"Relevant ISEF projects: {len(relevant_projects)} found.")
-
-    if not relevant_projects:
-        return {
-            "scores": {
-                "Originality": 5,
-                "Impactfulness": 5,
-                "Feasibility": 5,
-                "Quantifiable Data": 5,
-                "Specificity": 5,
-            },
-            "average_score": 5.0
-        }
-
+    relevant_projects = [
+        proj for proj in ISEF_PROJECTS if inquiry_question.lower() in proj["abstract"].lower()
+    ]
     scores = {
-        "Originality": min(10, len(relevant_projects)),  # More projects = less original
-        "Impactfulness": 10 if len(relevant_projects) >= 5 else 7,
-        "Feasibility": 10 if len(relevant_projects) >= 3 else 6,
-        "Quantifiable Data": 8 if len(relevant_projects) >= 2 else 5,
+        "Originality": 10 - len(relevant_projects) if len(relevant_projects) < 10 else 1,
+        "Impactfulness": 8 if len(relevant_projects) >= 5 else 6,
+        "Feasibility": 7 if len(relevant_projects) >= 3 else 5,
+        "Quantifiable Data": 8 if len(relevant_projects) >= 2 else 6,
         "Specificity": 10 if len(inquiry_question.split()) > 10 else 7,
     }
-
     average_score = sum(scores.values()) / len(scores)
+    return {"scores": scores, "average_score": average_score}
 
-    evaluation = {
-        "scores": scores,
-        "average_score": round(average_score, 2)
-    }
-    print(f"Generated evaluation: {evaluation}")
-    return evaluation
-
+# Suggest Improvements
 def suggest_improvements(inquiry_question, scores):
-    """
-    Use AI to suggest three edited versions of the inquiry question addressing the lowest-scoring criteria.
-    """
-    sorted_criteria = sorted(scores.items(), key=lambda x: x[1])[:2]
-    lowest_criteria = [criterion for criterion, _ in sorted_criteria]
-
+    lowest_criteria = sorted(scores, key=scores.get)[:2]
     prompt = (
-        f"The following research inquiry question scored low on the criteria {', '.join(lowest_criteria)}:\n\n"
+        f"The inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n"
         f"Inquiry Question: {inquiry_question}\n\n"
-        f"Provide 3 improved versions of the question to address these weaknesses, clearly separated by new lines."
+        f"Provide 3 improved versions of this question to address these weaknesses."
     )
-
     try:
-        generated = generator(
-            prompt,
-            max_new_tokens=200,
-            num_return_sequences=1,
-            truncation=True
-        )
-        # Split the response into three suggestions based on line breaks
-        suggestions = [
-            suggestion.strip()
-            for suggestion in generated[0]["generated_text"].split("\n")
-            if suggestion.strip()  # Ignore empty lines
-        ][:3]  # Limit to 3 suggestions
-        print("Generated suggestions:", suggestions)
-        return suggestions
+        generated = generator(prompt, max_new_tokens=150, num_return_sequences=1, truncation=True)
+        suggestions = generated[0]["generated_text"].split("\n")
+        return suggestions[:3]
     except Exception as e:
         print(f"Error generating suggestions: {e}")
-        return ["Error: Could not generate suggestions."]
-
+        return [f"Error: {e}"]
 
 @app.route("/")
 def home():
@@ -121,36 +74,30 @@ def home():
 def results():
     global current_evaluation
     inquiry_question = request.form.get("inquiry_question", "")
-
     print(f"Received inquiry question: {inquiry_question}")
 
-    try:
-        evaluation = evaluate_inquiry_question(inquiry_question)
-        suggestions = suggest_improvements(inquiry_question, evaluation["scores"])
-        current_evaluation = {
-            "scores": evaluation["scores"],
-            "average_score": evaluation["average_score"],
-            "suggestions": suggestions
-        }
-    except Exception as e:
-        print(f"Error during evaluation: {e}")
-        current_evaluation = {"error": f"Error: {e}"}
+    # Fetch data and evaluate the question
+    fetch_isef_data_from_s3()
+    evaluation = evaluate_inquiry_question(inquiry_question)
+    suggestions = suggest_improvements(inquiry_question, evaluation["scores"])
 
+    current_evaluation = {
+        "scores": evaluation["scores"],
+        "average_score": evaluation["average_score"],
+        "suggestions": suggestions
+    }
     return redirect(url_for("show_results"))
 
 @app.route("/results-data", methods=["GET"])
 def results_data():
     global current_evaluation
-    print("Request received at /results-data")
-    if "scores" not in current_evaluation:
-        print("Error: No evaluation data available.")
-        return jsonify({"error": "Failed to generate evaluation."}), 400
-    print(f"Returning evaluation: {current_evaluation}")
+    if not current_evaluation:
+        return jsonify({"error": "No evaluation data available."}), 400
     return jsonify(current_evaluation)
 
 @app.route("/results")
 def show_results():
-    return render_template("results_page.html")
+    return render_template("results_page.html", evaluation=current_evaluation)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
