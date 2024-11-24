@@ -57,15 +57,23 @@ def evaluate_project_idea(title, description, objectives, methods, feasibility, 
         f"Pathway: {pathway}\n\nProvide detailed evaluation."
     )
 
-    # Truncate prompt to fit within model limits
+    # Truncate the prompt to fit within safe limits
     prompt = truncate_prompt(prompt, max_tokens=1500)
+
+    # Debug tokenized input length
+    tokenized_input = tokenizer(prompt, return_tensors="pt", truncation=True, padding=True)
+    print(f"Tokenized input length: {tokenized_input['input_ids'].shape[1]} tokens")
+
+    # Fallback truncation if tokenized length exceeds safe threshold
+    if tokenized_input["input_ids"].shape[1] > 1800:
+        print("Tokenized input exceeds safe limit. Truncating further...")
+        prompt = " ".join(prompt.split()[:1200])
 
     # Generate evaluation
     try:
-        print(f"Prompt size: {len(prompt.split())} tokens")
         generated = generator(
             prompt,
-            max_new_tokens=200,  # Generate up to 200 tokens for response
+            max_new_tokens=150,  # Limit generated tokens
             num_return_sequences=1,
             truncation=True
         )
@@ -75,13 +83,15 @@ def evaluate_project_idea(title, description, objectives, methods, feasibility, 
     except RuntimeError as e:
         if "size of tensor" in str(e):
             print("Tensor size mismatch error:", e)
-            return "Error: The evaluation prompt is too long. Please shorten your inputs."
+            return "Error: The evaluation prompt is too long or caused an internal model error."
         else:
             print(f"Error generating evaluation: {e}")
             return f"Error: {e}"
     except Exception as e:
         print(f"Unexpected error during evaluation: {e}")
         return f"Error: {e}"
+
+
 
 
 @app.route("/")
