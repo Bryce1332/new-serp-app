@@ -50,16 +50,20 @@ def evaluate_project_idea(title, description, objectives, methods, feasibility, 
         f"Pathway: {pathway}\n\nProvide detailed evaluation."
     )
     try:
+        # Truncate prompt if necessary
+        if len(prompt.split()) > 2000:  # Limit for safety
+            prompt = " ".join(prompt.split()[:2000])
+
         generated = generator(
             prompt,
-            max_length=300,
+            max_new_tokens=150,  # Generate up to 150 tokens
             num_return_sequences=1,
             truncation=True
         )
         return generated[0]["generated_text"]
     except Exception as e:
         print(f"Error generating evaluation: {e}")
-        return "An error occurred during evaluation. Please try again."
+        return f"Error: {e}"
 
 @app.route("/")
 def home():
