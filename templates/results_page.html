@@ -48,17 +48,21 @@
     </div>
 
     <script>
-        // Populate the evaluation result dynamically
-        document.addEventListener('DOMContentLoaded', async function () {
-            const response = await fetch('/results-data');
-            const result = await response.json();
-            document.getElementById('evaluationOutput').innerText = result.evaluation;
-        });
-
-        // Navigate back to the input page
-        function goBack() {
-            window.location.href = '/';
+   document.addEventListener('DOMContentLoaded', async function () {
+    try {
+        const response = await fetch('/results-data');
+        if (!response.ok) {
+            document.getElementById('evaluationOutput').innerText = "Failed to fetch evaluation.";
+            return;
         }
+        const result = await response.json();
+        document.getElementById('evaluationOutput').innerText = result.evaluation || "No suggestions available.";
+    } catch (error) {
+        document.getElementById('evaluationOutput').innerText = "An error occurred while fetching the evaluation.";
+        console.error("Error fetching evaluation:", error);
+    }
+});
+
     </script>
 </body>
 </html>
