@@ -90,22 +90,28 @@ def suggest_improvements(inquiry_question, scores):
     prompt = (
         f"The following research inquiry question scored low on the criteria {', '.join(lowest_criteria)}:\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
-        f"Provide 3 improved versions of the question to address these weaknesses."
+        f"Provide 3 improved versions of the question to address these weaknesses, clearly separated by new lines."
     )
 
     try:
         generated = generator(
             prompt,
-            max_new_tokens=150,
+            max_new_tokens=200,
             num_return_sequences=1,
             truncation=True
         )
-        suggestions = generated[0]["generated_text"].strip().split("\n")[:3]
+        # Split the response into three suggestions based on line breaks
+        suggestions = [
+            suggestion.strip()
+            for suggestion in generated[0]["generated_text"].split("\n")
+            if suggestion.strip()  # Ignore empty lines
+        ][:3]  # Limit to 3 suggestions
         print("Generated suggestions:", suggestions)
         return suggestions
     except Exception as e:
         print(f"Error generating suggestions: {e}")
         return ["Error: Could not generate suggestions."]
+
 
 @app.route("/")
 def home():
