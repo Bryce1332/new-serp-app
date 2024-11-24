@@ -3,74 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Evaluator - Results</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .results {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
-        h2 {
-            color: #4CAF50;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            font-size: 16px;
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-    </style>
+    <title>Evaluation Results</title>
 </head>
 <body>
-    <div class="container">
-        <h1>Evaluation Results</h1>
-        <div id="results" class="results">
-            <h2>Your Project Evaluation:</h2>
-            <p id="evaluationOutput">Loading...</p>
-        </div>
-        <button onclick="goBack()">Back to Input Page</button>
-    </div>
+    <h1>Evaluation Results</h1>
+    <div id="evaluationOutput">Loading...</div>
 
     <script>
-        
-document.addEventListener('DOMContentLoaded', async function () {
-    console.log("Fetching evaluation from /results-data...");
-    try {
-        const response = await fetch('/results-data');
-        console.log("Response status:", response.status);
-
-        if (!response.ok) {
-            console.error("Error fetching evaluation:", response.statusText);
-            document.getElementById('evaluationOutput').innerText = "Failed to fetch evaluation.";
-            return;
-        }
-
-        const result = await response.json();
-        console.log("Fetched evaluation:", result);
-        document.getElementById('evaluationOutput').innerText = result.evaluation || "No evaluation available.";
-    } catch (error) {
-        console.error("Error fetching evaluation:", error);
-        document.getElementById('evaluationOutput').innerText = "An error occurred while fetching the evaluation.";
-    }
-});
-
-
+        document.addEventListener('DOMContentLoaded', async function () {
+            try {
+                const response = await fetch('/results-data');
+                if (!response.ok) {
+                    document.getElementById('evaluationOutput').innerText = "Failed to fetch evaluation.";
+                    return;
+                }
+                const result = await response.json();
+                document.getElementById('evaluationOutput').innerText = result.evaluation || "No evaluation available.";
+            } catch (error) {
+                document.getElementById('evaluationOutput').innerText = "An error occurred while fetching the evaluation.";
+                console.error("Error fetching evaluation:", error);
+            }
+        });
     </script>
 </body>
 </html>
