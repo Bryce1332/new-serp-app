@@ -116,4 +116,5 @@ def evaluate():
     data = request.get_json()
     title = data.get("title", "")
     description = data.get("description", "")
-    objectives = data.get("
+    objectives = data.get("objectives", [])
+
