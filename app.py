@@ -5,7 +5,7 @@ import json
 
 # AWS S3 setup
 S3_BUCKET = "serp-app-bucket"
-ISEF_PROJECTS_FILE = "isef-projects.json"
+ISEF_PROJECTS_FILE = "isef_projects.json"
 
 # Configure AWS credentials
 s3_client = boto3.client(
