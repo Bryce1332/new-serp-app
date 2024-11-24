@@ -136,14 +136,6 @@ def results():
 
     return redirect(url_for("show_results"))
 
-@app.route("/")  # Home page
-def home():
-    return render_template("project_evaluator_ui.html")
-
-@app.route("/results", methods=["POST"])  # Handles form submission
-def results():
-    # Handle form data and redirect
-    ...
 
 @app.route("/results-data")
 def results_data():
