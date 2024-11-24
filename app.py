@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, jsonify, redirect, url_for
-from transformers import pipeline, AutoTokenizer
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 import boto3
 import json
 import os
@@ -13,17 +13,12 @@ AWS_ACCESS_KEY_ID = os.getenv("AKIAXQIQAJ6R6M4JCJO7")
 AWS_SECRET_ACCESS_KEY = os.getenv("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")
 AWS_REGION = os.getenv("us-west-1")
 
-# Use the smallest Hugging Face model
-tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
-tokenizer.pad_token = tokenizer.eos_token  # Ensure padding token is set
 
-generator = pipeline(
-    "text-generation",
-    model="distilgpt2",
-    tokenizer=tokenizer,
-    truncation=True,
-    padding=True,
-)
+tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
+model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
+
+generator = pipeline("text2text-generation", model=model, tokenizer=tokenizer)
+
 
 # AWS S3 Configuration
 S3_BUCKET = "serp-app-bucket"
@@ -43,23 +38,22 @@ app = Flask(__name__)
 isef_data_cache = None
 
 def load_isef_data():
-    """Load and cache the ISEF data from S3."""
+    """Load and cache ISEF data."""
     global isef_data_cache
     if isef_data_cache is None:
         try:
-            print("Fetching ISEF data from S3...")
             response = s3_client.get_object(Bucket=S3_BUCKET, Key=ISEF_PROJECTS_FILE)
             isef_data_cache = json.loads(response["Body"].read())
-            # Reduce data size by only keeping titles and abstracts
             isef_data_cache = [
                 {"title": project["title"], "abstract": project["abstract"]}
                 for project in isef_data_cache
             ]
-            print(f"Loaded {len(isef_data_cache)} projects from S3.")
+            print(f"Loaded {len(isef_data_cache)} projects.")
         except Exception as e:
             print(f"Error fetching ISEF data: {e}")
             isef_data_cache = []
     return isef_data_cache
+
 
 
 def evaluate_inquiry_question(inquiry_question):
@@ -80,26 +74,31 @@ def evaluate_inquiry_question(inquiry_question):
 
 
 def suggest_improvements(inquiry_question, scores):
-    """Generate three improved versions of the inquiry question."""
+    """Generate improved inquiry questions."""
     lowest_criteria = sorted(scores, key=scores.get)[:2]
     prompt = (
         f"The inquiry question scored low on: {', '.join(lowest_criteria)}.\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
-        f"Generate exactly 3 improved versions addressing these weaknesses. "
-        f"Label them as '1.', '2.', and '3.'. Keep them concise."
+        f"Provide 3 improved versions of this question. "
+        f"Label them '1.', '2.', and '3.'. Keep each version concise."
     )
+
+    if len(prompt) > 500:  # Example length limit for prompts
+        print("Prompt is too long. Truncating...")
+        prompt = prompt[:500]
 
     try:
         generated = generator(
             prompt,
-            max_new_tokens=100,  # Limit output length
+            max_new_tokens=100,  # Keep response concise
             num_return_sequences=1,
             truncation=True,
         )
         response = generated[0]["generated_text"]
-        # Extract suggestions from the response
         suggestions = [
-            line.strip() for line in response.split("\n") if line.strip().startswith(("1.", "2.", "3."))
+            line.strip()
+            for line in response.split("\n")
+            if line.strip().startswith(("1.", "2.", "3."))
         ]
         while len(suggestions) < 3:
             suggestions.append("No additional suggestion available.")
