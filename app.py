@@ -13,11 +13,16 @@ s3_client = boto3.client(
     aws_secret_access_key="zX5p5xhFXZJTyEAtlTgQKatrX/siQbacJohXaLNt"
 )
 
-# Configure AI model
-tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
-tokenizer.pad_token = tokenizer.eos_token
-generator = pipeline("text-generation", model="distilgpt2", tokenizer=tokenizer)
-
+# Use a larger Hugging Face model for better suggestions
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-1.3B")
+tokenizer.pad_token = tokenizer.eos_token  # Ensure padding is handled
+generator = pipeline(
+    "text-generation",
+    model="EleutherAI/gpt-neo-1.3B",
+    tokenizer=tokenizer,
+    truncation=True,
+    padding=True
+)
 app = Flask(__name__)
 current_evaluation = {}
 ISEF_PROJECTS = []
@@ -74,36 +79,34 @@ def evaluate_inquiry_question(inquiry_question):
 
 def suggest_improvements(inquiry_question, scores):
     """
-    Generate three improved versions of the inquiry question to address the lowest-scoring criteria.
+    Generate three improved versions of the inquiry question addressing the lowest-scoring criteria.
     """
-    # Find the two lowest-scoring criteria
     lowest_criteria = sorted(scores, key=scores.get)[:2]
-
-    # Create a clear and focused prompt
     prompt = (
         f"The inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
-        f"Provide exactly three improved versions of this question to address these weaknesses. "
-        f"Each version must be labeled as '1.', '2.', and '3.' and improve either {lowest_criteria[0]} or {lowest_criteria[1]}."
+        f"Generate exactly three improved versions of this question to address these weaknesses. "
+        f"Each version must be labeled as '1.', '2.', and '3.' and improve on {lowest_criteria[0]} and/or {lowest_criteria[1]}.\n"
+        f"Each suggestion must be clear and specific."
     )
 
     try:
-        # Generate AI response
+        # Generate response
         generated = generator(
             prompt,
-            max_new_tokens=200,
+            max_new_tokens=150,
             num_return_sequences=1,
             truncation=True
         )
         response = generated[0]["generated_text"]
         print("Raw AI response:", response)
 
-        # Extract suggestions from the AI response
+        # Extract suggestions based on numbering
         suggestions = [
             line.strip() for line in response.split("\n") if line.strip().startswith(("1.", "2.", "3."))
         ]
 
-        # Ensure there are exactly three suggestions
+        # Ensure three suggestions are returned
         while len(suggestions) < 3:
             suggestions.append("No additional suggestion available.")
 
@@ -112,6 +115,7 @@ def suggest_improvements(inquiry_question, scores):
     except Exception as e:
         print(f"Error generating suggestions: {e}")
         return ["Error: Could not generate suggestions."]
+
 
 
 
