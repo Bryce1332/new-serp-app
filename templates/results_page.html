@@ -7,14 +7,14 @@
 <body>
     <h1>Evaluation Results</h1>
     {% if evaluation %}
-        <h2>Scores:</h2>
+        <h2>Scores Per Criterion:</h2>
         <ul>
             {% for criterion, score in evaluation.scores.items() %}
                 <li><strong>{{ criterion }}:</strong> {{ score }}/10</li>
             {% endfor %}
         </ul>
         <h3>Average Score: {{ evaluation.average_score }}/10</h3>
-        <h2>Suggestions:</h2>
+        <h2>Suggestions to Improve Inquiry Question:</h2>
         <ol>
             {% for suggestion in evaluation.suggestions %}
                 <li>{{ suggestion }}</li>
