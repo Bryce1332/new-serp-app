@@ -6,7 +6,7 @@
 </head>
 <body>
     <h1>Evaluation Results</h1>
-    {% if evaluation %}
+    {% if evaluation and evaluation.scores %}
         <h2>Scores Per Criterion:</h2>
         <ul>
             {% for criterion, score in evaluation.scores.items() %}
@@ -18,10 +18,12 @@
         <ol>
             {% for suggestion in evaluation.suggestions %}
                 <li>{{ suggestion }}</li>
+            {% else %}
+                <li>No suggestions available at this time.</li>
             {% endfor %}
         </ol>
     {% else %}
-        <p>No results available.</p>
+        <p>No results available. Please try again with a different inquiry question.</p>
     {% endif %}
     <a href="/">Back to Home</a>
 </body>
