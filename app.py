@@ -92,7 +92,7 @@ def suggest_improvements(inquiry_question, scores):
             truncation=True,
         )
         response = generated[0]["generated_text"]
-
+        print(f"Raw AI response: {response}")
         # Extract suggestions labeled '1.', '2.', and '3.'
         suggestions = [
             line.strip() for line in response.split("\n") if line.strip().startswith(("1.", "2.", "3."))
