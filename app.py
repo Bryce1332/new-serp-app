@@ -2,14 +2,32 @@ import boto3
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from transformers import pipeline
 import json
+import time
 
 # AWS S3 setup
 S3_BUCKET = "serp-app-bucket"
 ISEF_PROJECTS_FILE = "isef-projects.json"
-s3_client = boto3.client("s3")
+
+# Configure AWS credentials (use environment variables or hardcoded keys for testing)
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id="AKIAXQIQAJ6R6M4JCJO7",  # Replace with your AWS access key
+    aws_secret_access_key="zX5p5xhFXZJTyEAtlTgQKatrX/siQbacJohXaLNt"  # Replace with your AWS secret key
+)
 
 # Hugging Face model setup
-generator = pipeline("text-generation", model="EleutherAI/gpt-neo-1.3B")
+generator = pipeline(
+    "text-generation",
+    model="EleutherAI/gpt-neo-1.3B",
+    truncation=True,
+    padding="max_length"
+)
+
+# Flask app setup
+app = Flask(__name__)
+
+# Store evaluation result temporarily
+current_evaluation = {}
 
 def fetch_isef_data(query):
     """
@@ -63,17 +81,11 @@ def evaluate_project_idea(title, description, objectives, methods, feasibility, 
 
     # Tailor suggestions based on the pathway
     if pathway == "science":
-        pathway_criteria = (
-            "Emphasize forming a clear hypothesis, designing robust experiments, and collecting measurable data."
-        )
+        pathway_criteria = "Emphasize forming a clear hypothesis, designing robust experiments, and collecting measurable data."
     elif pathway == "engineering":
-        pathway_criteria = (
-            "Focus on problem-solving, designing and testing prototypes, and evaluating the efficiency and scalability of the solution."
-        )
+        pathway_criteria = "Focus on problem-solving, designing and testing prototypes, and evaluating the efficiency and scalability of the solution."
     elif pathway == "computer science":
-        pathway_criteria = (
-            "Concentrate on algorithm design, software development, and evaluating performance metrics and usability."
-        )
+        pathway_criteria = "Concentrate on algorithm design, software development, and evaluating performance metrics and usability."
     else:
         pathway_criteria = "Pathway not specified. General evaluation criteria applied."
 
@@ -99,16 +111,18 @@ def evaluate_project_idea(title, description, objectives, methods, feasibility, 
     )
 
     # Use Hugging Face to generate the evaluation
-    generated = generator(prompt, max_length=300, num_return_sequences=1)
-    evaluation = generated[0]["generated_text"]
-
-    return evaluation
-
-# Flask app setup
-app = Flask(__name__)
-
-# Store evaluation result temporarily
-current_evaluation = {}
+    try:
+        generated = generator(
+            prompt,
+            max_length=300,
+            num_return_sequences=1,
+            truncation=True
+        )
+        evaluation = generated[0]["generated_text"]
+        return evaluation
+    except Exception as e:
+        print(f"Error generating evaluation: {e}")
+        return "An error occurred during evaluation. Please try again."
 
 @app.route("/")
 def home():
@@ -117,6 +131,9 @@ def home():
 @app.route("/results", methods=["POST"])
 def results():
     global current_evaluation
+
+    # Start timer to measure processing time
+    start_time = time.time()
 
     # Extract form data
     title = request.form.get("title", "")
@@ -134,19 +151,20 @@ def results():
         )
     }
 
-    return redirect(url_for("show_results"))
+    # Measure end time
+    end_time = time.time()
+    print(f"Evaluation completed in {end_time - start_time} seconds")
 
+    return redirect(url_for("show_results"))
 
 @app.route("/results-data")
 def results_data():
     global current_evaluation
-    # Ensure current_evaluation contains a valid key 'evaluation'
     if "evaluation" not in current_evaluation:
         return jsonify({"evaluation": "No evaluation data available"}), 400
     return jsonify(current_evaluation)
 
-
-@app.route("/results")  # Displays the results page
+@app.route("/results")
 def show_results():
     return render_template("results_page.html")
 
