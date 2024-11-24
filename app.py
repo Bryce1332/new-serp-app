@@ -1,98 +1,58 @@
 import boto3
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from transformers import pipeline, AutoTokenizer
-import json
 
-# AWS S3 setup
-S3_BUCKET = "serp-app-bucket"
-ISEF_PROJECTS_FILE = "isef-projects.json"
-
-# Configure AWS credentials
-s3_client = boto3.client(
-    "s3",
-    aws_access_key_id="AKIAXQIQAJ6R6M4JCJO7",
-    aws_secret_access_key="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"
-)
-
-# Use a smaller Hugging Face model
+# Hugging Face model setup
 tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
-tokenizer.pad_token = tokenizer.eos_token  # Set padding token
+tokenizer.pad_token = tokenizer.eos_token  # Set EOS token as padding token
 generator = pipeline(
     "text-generation",
     model="EleutherAI/gpt-neo-125M",
     tokenizer=tokenizer,
     truncation=True,
-    padding="max_length"
+    padding=True
 )
 
 app = Flask(__name__)
 current_evaluation = {}
 
-def fetch_isef_data(query):
-    try:
-        response = s3_client.get_object(Bucket=S3_BUCKET, Key=ISEF_PROJECTS_FILE)
-        isef_projects = json.loads(response["Body"].read())
-        relevant_projects = [
-            project for project in isef_projects if query.lower() in project["title"].lower()
-        ]
-        return relevant_projects
-    except Exception as e:
-        print(f"Error fetching ISEF data: {e}")
-        return []
-
-def truncate_prompt(prompt, max_tokens=1500):
-    """Truncate the prompt to fit within the model's token limit."""
-    if len(prompt.split()) > max_tokens:
-        print("Prompt exceeds token limit. Truncating...")
-        return " ".join(prompt.split()[:max_tokens])
-    return prompt
-
-def evaluate_project_idea(title, description, objectives, methods, feasibility, impact, pathway):
-    # Construct the prompt
+def evaluate_inquiry_question(inquiry_question):
+    """
+    Evaluate the inquiry question based on the 5 criteria:
+    - Originality
+    - Impactfulness
+    - Feasibility
+    - Quantifiable Data
+    - Specificity
+    """
+    # Construct the evaluation prompt
     prompt = (
-        f"Evaluate the following SERP project idea:\n\n"
-        f"Title: {title}\n\nDescription: {description}\n\n"
-        f"Objectives: {', '.join(objectives)}\n\nMethods: {', '.join(methods)}\n\n"
-        f"Feasibility: {feasibility}\n\nImpact: {impact}\n\n"
-        f"Pathway: {pathway}\n\nProvide detailed evaluation."
+        f"Evaluate the following research inquiry question:\n\n"
+        f"Inquiry Question: {inquiry_question}\n\n"
+        f"Evaluate the question based on these criteria:\n"
+        f"1. Originality: Is the question novel and unique?\n"
+        f"2. Impactfulness: Does the question address a problem with scientific, societal, or environmental significance?\n"
+        f"3. Feasibility: Can the project be realistically completed within two months by a high school student?\n"
+        f"4. Quantifiable Data: Does the question suggest measurable outcomes or results?\n"
+        f"5. Specificity: Is the question well-defined and focused?\n\n"
+        f"Provide detailed feedback on each criterion and assign an overall score (out of 100)."
     )
 
-    # Truncate the prompt to fit within safe limits
-    prompt = truncate_prompt(prompt, max_tokens=1500)
-
-    # Debug tokenized input length
-    tokenized_input = tokenizer(prompt, return_tensors="pt", truncation=True, padding=True)
-    print(f"Tokenized input length: {tokenized_input['input_ids'].shape[1]} tokens")
-
-    # Fallback truncation if tokenized length exceeds safe threshold
-    if tokenized_input["input_ids"].shape[1] > 1800:
-        print("Tokenized input exceeds safe limit. Truncating further...")
-        prompt = " ".join(prompt.split()[:1200])
-
-    # Generate evaluation
     try:
+        # Generate the evaluation
+        print(f"Evaluating inquiry question: {inquiry_question}")
         generated = generator(
             prompt,
-            max_new_tokens=150,  # Limit generated tokens
+            max_new_tokens=200,  # Limit response length
             num_return_sequences=1,
             truncation=True
         )
         evaluation = generated[0]["generated_text"]
         print("Generated evaluation:", evaluation)
         return evaluation
-    except RuntimeError as e:
-        if "size of tensor" in str(e):
-            print("Tensor size mismatch error:", e)
-            return "Error: The evaluation prompt is too long or caused an internal model error."
-        else:
-            print(f"Error generating evaluation: {e}")
-            return f"Error: {e}"
     except Exception as e:
-        print(f"Unexpected error during evaluation: {e}")
+        print(f"Error generating evaluation: {e}")
         return f"Error: {e}"
-
-
-
 
 @app.route("/")
 def home():
@@ -101,20 +61,12 @@ def home():
 @app.route("/results", methods=["POST"])
 def results():
     global current_evaluation
-    title = request.form.get("title", "")
-    description = request.form.get("description", "")
-    objectives = request.form.get("objectives", "").split(",")
-    methods = request.form.get("methods", "").split(",")
-    feasibility = request.form.get("feasibility", "")
-    impact = request.form.get("impact", "")
-    pathway = request.form.get("pathway", "")
+    inquiry_question = request.form.get("inquiry_question", "")
 
-    print(f"Received form data: Title={title}, Description={description}, Objectives={objectives}, Methods={methods}, Feasibility={feasibility}, Impact={impact}, Pathway={pathway}")
+    print(f"Received inquiry question: {inquiry_question}")
 
     try:
-        evaluation = evaluate_project_idea(
-            title, description, objectives, methods, feasibility, impact, pathway
-        )
+        evaluation = evaluate_inquiry_question(inquiry_question)
         current_evaluation = {"evaluation": evaluation}
         print(f"Generated evaluation: {current_evaluation}")
     except Exception as e:
