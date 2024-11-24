@@ -78,33 +78,37 @@ def suggest_improvements(inquiry_question, scores):
     """
     lowest_criteria = sorted(scores, key=scores.get)[:2]
     prompt = (
-        f"The inquiry question scored low on: {', '.join(lowest_criteria)}.\n"
-        f"Inquiry: {inquiry_question}\n"
-        f"Provide 3 improved versions of this question addressing these weaknesses, labeled as '1.', '2.', and '3.'."
+        f"The inquiry question scored low on: {', '.join(lowest_criteria)}.\n\n"
+        f"Inquiry Question: {inquiry_question}\n\n"
+        f"Provide three improved versions of this question to address these weaknesses. "
+        f"Each version must be labeled as '1.', '2.', and '3.' and should focus on improving {lowest_criteria[0]} and/or {lowest_criteria[1]}.\n"
+        f"Keep each suggestion concise and actionable."
     )
 
     try:
+        # Generate response from AI
         generated = generator(
             prompt,
-            max_new_tokens=100,  # Reduce output length
+            max_new_tokens=150,  # Limit response length
             num_return_sequences=1,
             truncation=True
         )
         response = generated[0]["generated_text"]
         print("Raw AI response:", response)
 
+        # Extract suggestions from response
         suggestions = [
             line.strip() for line in response.split("\n") if line.strip().startswith(("1.", "2.", "3."))
         ]
 
+        # Ensure there are exactly three suggestions
         while len(suggestions) < 3:
             suggestions.append("No additional suggestion available.")
 
         return suggestions[:3]
     except Exception as e:
         print(f"Error generating suggestions: {e}")
-        return ["Error: Could not generate suggestions."]
-
+        return ["Error: Could not generate suggestions."] * 3
 
 
 
@@ -116,26 +120,35 @@ def home():
 @app.route("/results", methods=["POST"])
 def results():
     global current_evaluation
-    inquiry_question = request.form.get("inquiry_question", "")
+    inquiry_question = request.form.get("inquiry_question", "").strip()
+
     print(f"Received inquiry question: {inquiry_question}")
 
-    # Fetch the ISEF data before evaluating the question
-    fetch_isef_data_from_s3()
+    try:
+        # Fetch scores and average score
+        evaluation = evaluate_inquiry_question(inquiry_question)
+        print(f"Evaluation results: {evaluation}")
 
-    if not ISEF_PROJECTS:
-        print("ISEF_PROJECTS is empty.")
-        current_evaluation = {"error": "Failed to fetch ISEF data. No projects available for evaluation."}
-        return redirect(url_for("show_results"))
+        # Generate suggestions based on scores
+        suggestions = suggest_improvements(inquiry_question, evaluation["scores"])
+        print(f"Generated suggestions: {suggestions}")
 
-    evaluation = evaluate_inquiry_question(inquiry_question)
-    suggestions = suggest_improvements(inquiry_question, evaluation["scores"])
+        # Populate current_evaluation
+        current_evaluation = {
+            "scores": evaluation["scores"],
+            "average_score": evaluation["average_score"],
+            "suggestions": suggestions
+        }
+    except Exception as e:
+        print(f"Error during evaluation: {e}")
+        current_evaluation = {
+            "scores": {},
+            "average_score": 0,
+            "suggestions": ["Error: Could not generate suggestions."] * 3
+        }
 
-    current_evaluation = {
-        "scores": evaluation["scores"],
-        "average_score": evaluation["average_score"],
-        "suggestions": suggestions
-    }
     return redirect(url_for("show_results"))
+
 
 
 @app.route("/results-data", methods=["GET"])
