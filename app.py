@@ -74,38 +74,39 @@ def evaluate_inquiry_question(inquiry_question):
 
 
 def suggest_improvements(inquiry_question, scores):
-    """Generate improved inquiry questions."""
+    """Generate three improved versions of the inquiry question."""
+    # Find the two lowest-scoring criteria
     lowest_criteria = sorted(scores, key=scores.get)[:2]
     prompt = (
         f"The inquiry question scored low on: {', '.join(lowest_criteria)}.\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
-        f"Provide 3 improved versions of this question. "
-        f"Label them '1.', '2.', and '3.'. Keep each version concise."
+        f"Provide exactly 3 improved versions of this question, addressing these weaknesses. "
+        f"Label them as '1.', '2.', and '3.'. Each suggestion should be concise and clear."
     )
-
-    if len(prompt) > 500:  # Example length limit for prompts
-        print("Prompt is too long. Truncating...")
-        prompt = prompt[:500]
 
     try:
         generated = generator(
             prompt,
-            max_new_tokens=100,  # Keep response concise
+            max_new_tokens=150,  # Ensure suggestions are concise
             num_return_sequences=1,
             truncation=True,
         )
         response = generated[0]["generated_text"]
+
+        # Extract suggestions labeled '1.', '2.', and '3.'
         suggestions = [
-            line.strip()
-            for line in response.split("\n")
-            if line.strip().startswith(("1.", "2.", "3."))
+            line.strip() for line in response.split("\n") if line.strip().startswith(("1.", "2.", "3."))
         ]
+
+        # Ensure we have exactly 3 suggestions
         while len(suggestions) < 3:
             suggestions.append("No additional suggestion available.")
+
         return suggestions[:3]
     except Exception as e:
         print(f"Error generating suggestions: {e}")
         return ["Error: Could not generate suggestions."] * 3
+
 
 
 @app.route("/")
