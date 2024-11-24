@@ -17,15 +17,6 @@ app = Flask(__name__)
 current_evaluation = {}
 
 def evaluate_inquiry_question(inquiry_question):
-    """
-    Evaluate the inquiry question based on the 5 criteria:
-    - Originality
-    - Impactfulness
-    - Feasibility
-    - Quantifiable Data
-    - Specificity
-    """
-    # Construct the evaluation prompt
     prompt = (
         f"Evaluate the following research inquiry question:\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
@@ -38,21 +29,33 @@ def evaluate_inquiry_question(inquiry_question):
         f"Provide detailed feedback on each criterion and assign an overall score (out of 100)."
     )
 
+    # Ensure prompt is within safe limits
+    if len(prompt.split()) > 1500:
+        print("Truncating prompt...")
+        prompt = " ".join(prompt.split()[:1500])
+
     try:
-        # Generate the evaluation
-        print(f"Evaluating inquiry question: {inquiry_question}")
+        print(f"Evaluating inquiry question with prompt size: {len(prompt.split())} tokens")
         generated = generator(
             prompt,
-            max_new_tokens=200,  # Limit response length
+            max_new_tokens=150,  # Limit the response length
             num_return_sequences=1,
             truncation=True
         )
         evaluation = generated[0]["generated_text"]
         print("Generated evaluation:", evaluation)
         return evaluation
+    except RuntimeError as e:
+        if "size of tensor" in str(e):
+            print("Tensor size mismatch error:", e)
+            return "Error: The evaluation prompt is too long or caused an internal model error."
+        else:
+            print(f"Error generating evaluation: {e}")
+            return f"Error: {e}"
     except Exception as e:
-        print(f"Error generating evaluation: {e}")
+        print(f"Unexpected error during evaluation: {e}")
         return f"Error: {e}"
+
 
 @app.route("/")
 def home():
