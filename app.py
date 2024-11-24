@@ -36,27 +36,21 @@ def evaluate_inquiry_question(inquiry_question):
         print("Truncating prompt...")
         prompt = " ".join(prompt.split()[:1500])
 
-    try:
-        print(f"Evaluating inquiry question with prompt size: {len(prompt.split())} tokens")
-        generated = generator(
-            prompt,
-            max_new_tokens=150,  # Limit the response length
-            num_return_sequences=1,
-            truncation=True
-        )
-        evaluation = generated[0]["generated_text"]
-        print("Generated evaluation:", evaluation)
-        return evaluation
-    except RuntimeError as e:
-        if "size of tensor" in str(e):
-            print("Tensor size mismatch error:", e)
-            return "Error: The evaluation prompt is too long or caused an internal model error."
-        else:
-            print(f"Error generating evaluation: {e}")
-            return f"Error: {e}"
-    except Exception as e:
-        print(f"Unexpected error during evaluation: {e}")
-        return f"Error: {e}"
+   try:
+    print(f"Evaluating inquiry question with prompt size: {len(prompt.split())} tokens")
+    generated = generator(
+        prompt,
+        max_new_tokens=150,  # Limit the response length
+        num_return_sequences=1,
+        truncation=True
+    )
+    # Extract the generated response
+    evaluation = generated[0]["generated_text"]
+    print("Generated evaluation:", evaluation)
+    return evaluation
+except Exception as e:
+    print(f"Error generating evaluation: {e}")
+    return f"Error: {e}"
 
 
 @app.route("/")
