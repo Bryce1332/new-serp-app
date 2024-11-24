@@ -40,6 +40,13 @@ def fetch_isef_data(query):
         print(f"Error fetching ISEF data: {e}")
         return []
 
+def truncate_prompt(prompt, max_tokens=1500):
+    """Truncate the prompt to fit within the model's token limit."""
+    if len(prompt.split()) > max_tokens:
+        print("Prompt exceeds token limit. Truncating...")
+        return " ".join(prompt.split()[:max_tokens])
+    return prompt
+
 def evaluate_project_idea(title, description, objectives, methods, feasibility, impact, pathway):
     # Construct the prompt
     prompt = (
@@ -51,10 +58,7 @@ def evaluate_project_idea(title, description, objectives, methods, feasibility, 
     )
 
     # Truncate prompt to fit within model limits
-    max_prompt_tokens = 1500  # Ensure room for model's response
-    if len(prompt.split()) > max_prompt_tokens:
-        print("Prompt exceeds token limit. Truncating...")
-        prompt = " ".join(prompt.split()[:max_prompt_tokens])
+    prompt = truncate_prompt(prompt, max_tokens=1500)
 
     # Generate evaluation
     try:
@@ -68,8 +72,15 @@ def evaluate_project_idea(title, description, objectives, methods, feasibility, 
         evaluation = generated[0]["generated_text"]
         print("Generated evaluation:", evaluation)
         return evaluation
+    except RuntimeError as e:
+        if "size of tensor" in str(e):
+            print("Tensor size mismatch error:", e)
+            return "Error: The evaluation prompt is too long. Please shorten your inputs."
+        else:
+            print(f"Error generating evaluation: {e}")
+            return f"Error: {e}"
     except Exception as e:
-        print(f"Error generating evaluation: {e}")
+        print(f"Unexpected error during evaluation: {e}")
         return f"Error: {e}"
 
 
@@ -101,8 +112,6 @@ def results():
         current_evaluation = {"evaluation": f"Error: {e}"}
 
     return redirect(url_for("show_results"))
-
-
 
 @app.route("/results-data", methods=["GET"])
 def results_data():
