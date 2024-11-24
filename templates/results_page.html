@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Evaluator - Results</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        h2 {
+            color: #4CAF50;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Evaluation Results</h1>
+        <div id="results" class="results">
+            <h2>Your Project Evaluation:</h2>
+            <p id="evaluationOutput">Loading...</p>
+        </div>
+        <button onclick="goBack()">Back to Input Page</button>
+    </div>
+
+    <script>
+        // Populate the evaluation result dynamically
+        document.addEventListener('DOMContentLoaded', async function () {
+            const response = await fetch('/results-data');
+            const result = await response.json();
+            document.getElementById('evaluationOutput').innerText = result.evaluation;
+        });
+
+        // Navigate back to the input page
+        function goBack() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
