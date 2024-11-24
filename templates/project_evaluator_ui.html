@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Evaluator</title>
+    <title>Project Evaluator - Input</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -34,19 +34,12 @@
         button:hover {
             background-color: #45a049;
         }
-        .results {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Project Evaluator</h1>
-        <form id="projectForm">
+        <form id="projectForm" action="/results" method="POST">
             <label for="pathway">Select Pathway:</label>
             <select id="pathway" name="pathway" required>
                 <option value="">--Choose Pathway--</option>
@@ -75,45 +68,6 @@
 
             <button type="submit">Evaluate Project</button>
         </form>
-
-        <div id="results" class="results" style="display:none;">
-            <h2>Evaluation Results</h2>
-            <p id="evaluationOutput"></p>
-        </div>
     </div>
-
-    <script>
-        document.getElementById('projectForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            const pathway = document.getElementById('pathway').value;
-            const title = document.getElementById('title').value;
-            const description = document.getElementById('description').value;
-            const objectives = document.getElementById('objectives').value.split(',').map(obj => obj.trim());
-            const methods = document.getElementById('methods').value.split(',').map(method => method.trim());
-            const feasibility = document.getElementById('feasibility').value;
-            const impact = document.getElementById('impact').value;
-
-            const response = await fetch('/evaluate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    pathway,
-                    title,
-                    description,
-                    objectives,
-                    methods,
-                    feasibility,
-                    impact
-                })
-            });
-
-            const result = await response.json();
-            document.getElementById('evaluationOutput').innerText = result.evaluation;
-            document.getElementById('results').style.display = 'block';
-        });
-    </script>
 </body>
 </html>
