@@ -41,6 +41,7 @@ def fetch_isef_data(query):
         return []
 
 def evaluate_project_idea(title, description, objectives, methods, feasibility, impact, pathway):
+    # Construct the prompt
     prompt = (
         f"Evaluate the following SERP project idea:\n\n"
         f"Title: {title}\n\nDescription: {description}\n\n"
@@ -48,25 +49,29 @@ def evaluate_project_idea(title, description, objectives, methods, feasibility, 
         f"Feasibility: {feasibility}\n\nImpact: {impact}\n\n"
         f"Pathway: {pathway}\n\nProvide detailed evaluation."
     )
-    try:
-        # Truncate input to prevent model overload
-        max_input_tokens = 1024
-        if len(prompt.split()) > max_input_tokens:
-            prompt = " ".join(prompt.split()[:max_input_tokens])
 
+    # Truncate prompt to fit within model limits
+    max_prompt_tokens = 1500  # Ensure room for model's response
+    if len(prompt.split()) > max_prompt_tokens:
+        print("Prompt exceeds token limit. Truncating...")
+        prompt = " ".join(prompt.split()[:max_prompt_tokens])
+
+    # Generate evaluation
+    try:
+        print(f"Prompt size: {len(prompt.split())} tokens")
         generated = generator(
             prompt,
-            max_new_tokens=50,  # Generate up to 50 tokens
+            max_new_tokens=200,  # Generate up to 200 tokens for response
             num_return_sequences=1,
             truncation=True
         )
-        return generated[0]["generated_text"]
-    except MemoryError:
-        print("MemoryError: The model ran out of resources.")
-        return "Error: The evaluation could not be completed due to resource constraints."
+        evaluation = generated[0]["generated_text"]
+        print("Generated evaluation:", evaluation)
+        return evaluation
     except Exception as e:
         print(f"Error generating evaluation: {e}")
-        return "Error: The evaluation could not be completed. Please try again."
+        return f"Error: {e}"
+
 
 @app.route("/")
 def home():
@@ -86,17 +91,17 @@ def results():
     print(f"Received form data: Title={title}, Description={description}, Objectives={objectives}, Methods={methods}, Feasibility={feasibility}, Impact={impact}, Pathway={pathway}")
 
     try:
-        current_evaluation = {
-            "evaluation": evaluate_project_idea(
-                title, description, objectives, methods, feasibility, impact, pathway
-            )
-        }
+        evaluation = evaluate_project_idea(
+            title, description, objectives, methods, feasibility, impact, pathway
+        )
+        current_evaluation = {"evaluation": evaluation}
         print(f"Generated evaluation: {current_evaluation}")
     except Exception as e:
         print(f"Error during evaluation: {e}")
         current_evaluation = {"evaluation": f"Error: {e}"}
 
     return redirect(url_for("show_results"))
+
 
 
 @app.route("/results-data", methods=["GET"])
