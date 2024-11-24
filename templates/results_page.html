@@ -48,14 +48,21 @@
     </div>
 
     <script>
-   document.addEventListener('DOMContentLoaded', async function () {
+        
+ document.addEventListener('DOMContentLoaded', async function () {
     try {
+        console.log("Fetching evaluation from /results-data...");
         const response = await fetch('/results-data');
+        console.log("Response status:", response.status);
+
         if (!response.ok) {
             document.getElementById('evaluationOutput').innerText = "Failed to fetch evaluation.";
+            console.error("Failed to fetch evaluation:", response.statusText);
             return;
         }
+
         const result = await response.json();
+        console.log("Fetched evaluation:", result);
         document.getElementById('evaluationOutput').innerText = result.evaluation || "No suggestions available.";
     } catch (error) {
         document.getElementById('evaluationOutput').innerText = "An error occurred while fetching the evaluation.";
