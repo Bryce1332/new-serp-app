@@ -110,11 +110,18 @@ app = Flask(__name__)
 @app.route("/")
 def home():
     return render_template("project_evaluator_ui.html")
-
+    
 @app.route("/evaluate", methods=["POST"])
 def evaluate():
     data = request.get_json()
     title = data.get("title", "")
     description = data.get("description", "")
-    objectives = data.get("objectives", [])
+    objectives = data.get("objectives", [])  # Fixed the string
+    methods = data.get("methods", [])
+    feasibility = data.get("feasibility", "")
+    impact = data.get("impact", "")
+    pathway = data.get("pathway", "")
+
+    result = evaluate_project_idea(title, description, objectives, methods, feasibility, impact, pathway)
+    return jsonify({"evaluation": result})
 
