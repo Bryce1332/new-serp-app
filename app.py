@@ -1,5 +1,5 @@
 import boto3
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for
 from transformers import pipeline
 import json
 
@@ -107,21 +107,42 @@ def evaluate_project_idea(title, description, objectives, methods, feasibility, 
 # Flask app setup
 app = Flask(__name__)
 
+# Store evaluation result temporarily
+current_evaluation = {}
+
 @app.route("/")
 def home():
     return render_template("project_evaluator_ui.html")
-    
-@app.route("/evaluate", methods=["POST"])
-def evaluate():
-    data = request.get_json()
-    title = data.get("title", "")
-    description = data.get("description", "")
-    objectives = data.get("objectives", [])  # Fixed the string
-    methods = data.get("methods", [])
-    feasibility = data.get("feasibility", "")
-    impact = data.get("impact", "")
-    pathway = data.get("pathway", "")
 
-    result = evaluate_project_idea(title, description, objectives, methods, feasibility, impact, pathway)
-    return jsonify({"evaluation": result})
+@app.route("/results", methods=["POST"])
+def results():
+    global current_evaluation
 
+    # Extract form data
+    title = request.form.get("title", "")
+    description = request.form.get("description", "")
+    objectives = request.form.get("objectives", "").split(",")
+    methods = request.form.get("methods", "").split(",")
+    feasibility = request.form.get("feasibility", "")
+    impact = request.form.get("impact", "")
+    pathway = request.form.get("pathway", "")
+
+    # Evaluate project idea
+    current_evaluation = {
+        "evaluation": evaluate_project_idea(
+            title, description, objectives, methods, feasibility, impact, pathway
+        )
+    }
+
+    return redirect(url_for("show_results"))
+
+@app.route("/results-data")
+def results_data():
+    return jsonify(current_evaluation)
+
+@app.route("/results")
+def show_results():
+    return render_template("results_page.html")
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
