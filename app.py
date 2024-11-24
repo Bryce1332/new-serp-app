@@ -77,25 +77,35 @@ def suggest_improvements(inquiry_question, scores):
     prompt = (
         f"The inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
-        f"Provide three improved versions of this question to address these weaknesses."
+        f"Provide exactly three improved versions of this question to address these weaknesses. "
+        f"Label each suggestion as '1.', '2.', and '3.'."
     )
 
     try:
-        generated = generator(prompt, max_new_tokens=150, num_return_sequences=1, truncation=True)
+        generated = generator(
+            prompt,
+            max_new_tokens=200,
+            num_return_sequences=1,
+            truncation=True
+        )
         response = generated[0]["generated_text"]
         print("Raw AI response:", response)
 
-        # Parse suggestions from AI response
+        # Extract suggestions labeled as 1., 2., 3.
         suggestions = [
             line.strip() for line in response.split("\n") if line.strip().startswith(("1.", "2.", "3."))
         ]
-        if len(suggestions) < 3:
-            while len(suggestions) < 3:
-                suggestions.append("No additional suggestion available.")
+
+        # Ensure we always return three suggestions
+        while len(suggestions) < 3:
+            suggestions.append("No additional suggestion available.")
+
+        print("Parsed suggestions:", suggestions)
         return suggestions[:3]
     except Exception as e:
         print(f"Error generating suggestions: {e}")
         return ["Error: Could not generate suggestions."]
+
 
 
 
@@ -131,9 +141,13 @@ def results():
 @app.route("/results-data", methods=["GET"])
 def results_data():
     global current_evaluation
-    if not current_evaluation:
+    print("Request received at /results-data")
+    if not current_evaluation or "scores" not in current_evaluation:
+        print("Error: No evaluation data available.")
         return jsonify({"error": "No evaluation data available."}), 400
+    print(f"Returning evaluation: {current_evaluation}")
     return jsonify(current_evaluation)
+
 
 @app.route("/results")
 def show_results():
