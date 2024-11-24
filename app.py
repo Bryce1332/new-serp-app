@@ -72,7 +72,6 @@ def evaluate_inquiry_question(inquiry_question):
 
     return {"scores": scores, "average_score": round(average_score, 2)}
 
-
 def suggest_improvements(inquiry_question, scores):
     """Generate three improved versions of the inquiry question."""
     # Find the two lowest-scoring criteria
@@ -81,7 +80,7 @@ def suggest_improvements(inquiry_question, scores):
         f"The inquiry question scored low on: {', '.join(lowest_criteria)}.\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
         f"Provide exactly 3 improved versions of this question, addressing these weaknesses. "
-        f"Label them as '1.', '2.', and '3.'. Each suggestion should be concise and clear."
+        f"Label them as '1.', '2.', and '3.'. Ensure each suggestion is concise, actionable, and well-defined."
     )
 
     try:
@@ -92,22 +91,26 @@ def suggest_improvements(inquiry_question, scores):
             truncation=True,
         )
         response = generated[0]["generated_text"]
+
+        # Debugging: Print the raw AI response
         print(f"Raw AI response: {response}")
+
         # Extract suggestions labeled '1.', '2.', and '3.'
         suggestions = [
             line.strip() for line in response.split("\n") if line.strip().startswith(("1.", "2.", "3."))
         ]
 
-        # Ensure we have exactly 3 suggestions
+        # If AI fails to generate enough suggestions, fill the rest
         while len(suggestions) < 3:
             suggestions.append("No additional suggestion available.")
+
+        # Remove any placeholder-like suggestions (e.g., "2.")
+        suggestions = [s if len(s) > 3 else "No additional suggestion available." for s in suggestions]
 
         return suggestions[:3]
     except Exception as e:
         print(f"Error generating suggestions: {e}")
         return ["Error: Could not generate suggestions."] * 3
-
-
 
 @app.route("/")
 def home():
