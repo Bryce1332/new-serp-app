@@ -2,16 +2,18 @@ import boto3
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from transformers import pipeline, AutoTokenizer
 
-# Hugging Face model setup
-tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
-tokenizer.pad_token = tokenizer.eos_token  # Set EOS token as padding token
+# Use a smaller Hugging Face model like DistilGPT-2
+tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
+tokenizer.pad_token = tokenizer.eos_token  # Ensure padding token is set
+
 generator = pipeline(
     "text-generation",
-    model="EleutherAI/gpt-neo-125M",
+    model="distilgpt2",
     tokenizer=tokenizer,
     truncation=True,
     padding=True
 )
+
 
 app = Flask(__name__)
 current_evaluation = {}
