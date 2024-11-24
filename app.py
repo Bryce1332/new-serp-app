@@ -89,11 +89,13 @@ def results():
     }
     return redirect(url_for("show_results"))
 
-@app.route("/results-data")
+@app.route("/results-data", methods=["GET"])
 def results_data():
     global current_evaluation
     if "evaluation" not in current_evaluation:
-        return jsonify({"evaluation": "No evaluation data available"}), 400
+        print("Error: No evaluation data available.")
+        return jsonify({"evaluation": "Failed to generate evaluation."}), 400
+    print(f"Returning evaluation: {current_evaluation}")
     return jsonify(current_evaluation)
 
 @app.route("/results")
