@@ -50,21 +50,50 @@ def evaluate_inquiry_question(inquiry_question):
     average_score = sum(scores.values()) / len(scores)
     return {"scores": scores, "average_score": average_score}
 
-# Suggest Improvements
 def suggest_improvements(inquiry_question, scores):
+    """
+    Use AI to suggest three edited versions of the inquiry question addressing the lowest-scoring criteria.
+    """
+    # Identify the two lowest-scoring criteria
     lowest_criteria = sorted(scores, key=scores.get)[:2]
+
+    # Construct the prompt
     prompt = (
-        f"The inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n"
+        f"The following inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
-        f"Provide 3 improved versions of this question to address these weaknesses."
+        f"Provide three improved versions of this question to address these weaknesses, clearly labeled as 1, 2, and 3."
     )
+
     try:
-        generated = generator(prompt, max_new_tokens=150, num_return_sequences=1, truncation=True)
-        suggestions = generated[0]["generated_text"].split("\n")
+        # Generate AI response
+        generated = generator(
+            prompt,
+            max_new_tokens=150,
+            num_return_sequences=1,
+            truncation=True
+        )
+
+        # Parse the AI response
+        response = generated[0]["generated_text"]
+        print("Raw AI response:", response)
+
+        # Extract suggestions based on numbering (1., 2., 3.)
+        suggestions = []
+        for line in response.split("\n"):
+            if line.strip().startswith(("1.", "2.", "3.")):
+                suggestions.append(line.strip())
+
+        # Ensure we return exactly three suggestions
+        if len(suggestions) < 3:
+            while len(suggestions) < 3:
+                suggestions.append("No additional suggestion available.")
+
+        print("Parsed suggestions:", suggestions)
         return suggestions[:3]
     except Exception as e:
         print(f"Error generating suggestions: {e}")
         return [f"Error: {e}"]
+
 
 @app.route("/")
 def home():
