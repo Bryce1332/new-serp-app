@@ -73,15 +73,22 @@ def evaluate_inquiry_question(inquiry_question):
     return {"scores": scores, "average_score": average_score}
 
 def suggest_improvements(inquiry_question, scores):
+    """
+    Generate three improved versions of the inquiry question to address the lowest-scoring criteria.
+    """
+    # Find the two lowest-scoring criteria
     lowest_criteria = sorted(scores, key=scores.get)[:2]
+
+    # Create a clear and focused prompt
     prompt = (
         f"The inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
         f"Provide exactly three improved versions of this question to address these weaknesses. "
-        f"Label each suggestion as '1.', '2.', and '3.'."
+        f"Each version must be labeled as '1.', '2.', and '3.' and improve either {lowest_criteria[0]} or {lowest_criteria[1]}."
     )
 
     try:
+        # Generate AI response
         generated = generator(
             prompt,
             max_new_tokens=200,
@@ -91,12 +98,12 @@ def suggest_improvements(inquiry_question, scores):
         response = generated[0]["generated_text"]
         print("Raw AI response:", response)
 
-        # Extract suggestions labeled as 1., 2., 3.
+        # Extract suggestions from the AI response
         suggestions = [
             line.strip() for line in response.split("\n") if line.strip().startswith(("1.", "2.", "3."))
         ]
 
-        # Ensure we always return three suggestions
+        # Ensure there are exactly three suggestions
         while len(suggestions) < 3:
             suggestions.append("No additional suggestion available.")
 
