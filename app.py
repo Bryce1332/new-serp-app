@@ -37,62 +37,66 @@ def fetch_isef_data_from_s3():
 
 # Evaluate Inquiry Question
 def evaluate_inquiry_question(inquiry_question):
+    """
+    Critically evaluate the inquiry question against the ISEF database abstracts.
+    """
+    # Match inquiry question against abstracts
     relevant_projects = [
         proj for proj in ISEF_PROJECTS if inquiry_question.lower() in proj["abstract"].lower()
     ]
+
+    # Criteria scoring logic
+    originality_score = 10 - min(len(relevant_projects), 10)  # More matches = lower originality
+    impact_score = 5 if len(inquiry_question.split()) <= 8 else 7  # Penalize very short questions
+    feasibility_score = (
+        4 if len(relevant_projects) >= 8 else 6 if len(relevant_projects) >= 5 else 8
+    )  # Fewer matches = more feasible
+    quantifiable_data_score = (
+        5 if "measure" not in inquiry_question.lower() else 8
+    )  # Reward measurable language
+    specificity_score = (
+        4 if len(inquiry_question.split()) <= 10 else 6 if len(inquiry_question.split()) <= 15 else 8
+    )  # Penalize vague or overly broad questions
+
+    # Aggregate scores
     scores = {
-        "Originality": 10 - len(relevant_projects) if len(relevant_projects) < 10 else 1,
-        "Impactfulness": 8 if len(relevant_projects) >= 5 else 6,
-        "Feasibility": 7 if len(relevant_projects) >= 3 else 5,
-        "Quantifiable Data": 8 if len(relevant_projects) >= 2 else 6,
-        "Specificity": 10 if len(inquiry_question.split()) > 10 else 7,
+        "Originality": originality_score,
+        "Impactfulness": impact_score,
+        "Feasibility": feasibility_score,
+        "Quantifiable Data": quantifiable_data_score,
+        "Specificity": specificity_score,
     }
     average_score = sum(scores.values()) / len(scores)
+
+    print(f"Scores: {scores}")
+    print(f"Average Score: {average_score}")
     return {"scores": scores, "average_score": average_score}
 
 def suggest_improvements(inquiry_question, scores):
-    """
-    Use AI to suggest three edited versions of the inquiry question addressing the lowest-scoring criteria.
-    """
-    # Identify the two lowest-scoring criteria
     lowest_criteria = sorted(scores, key=scores.get)[:2]
-
-    # Construct the prompt
     prompt = (
-        f"The following inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n\n"
+        f"The inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
-        f"Provide three improved versions of this question to address these weaknesses, clearly labeled as 1, 2, and 3."
+        f"Provide three improved versions of this question to address these weaknesses."
     )
 
     try:
-        # Generate AI response
-        generated = generator(
-            prompt,
-            max_new_tokens=150,
-            num_return_sequences=1,
-            truncation=True
-        )
-
-        # Parse the AI response
+        generated = generator(prompt, max_new_tokens=150, num_return_sequences=1, truncation=True)
         response = generated[0]["generated_text"]
         print("Raw AI response:", response)
 
-        # Extract suggestions based on numbering (1., 2., 3.)
-        suggestions = []
-        for line in response.split("\n"):
-            if line.strip().startswith(("1.", "2.", "3.")):
-                suggestions.append(line.strip())
-
-        # Ensure we return exactly three suggestions
+        # Parse suggestions from AI response
+        suggestions = [
+            line.strip() for line in response.split("\n") if line.strip().startswith(("1.", "2.", "3."))
+        ]
         if len(suggestions) < 3:
             while len(suggestions) < 3:
                 suggestions.append("No additional suggestion available.")
-
-        print("Parsed suggestions:", suggestions)
         return suggestions[:3]
     except Exception as e:
         print(f"Error generating suggestions: {e}")
-        return [f"Error: {e}"]
+        return ["Error: Could not generate suggestions."]
+
 
 
 @app.route("/")
@@ -105,8 +109,14 @@ def results():
     inquiry_question = request.form.get("inquiry_question", "")
     print(f"Received inquiry question: {inquiry_question}")
 
-    # Fetch data and evaluate the question
+    # Fetch the ISEF data before evaluating the question
     fetch_isef_data_from_s3()
+
+    if not ISEF_PROJECTS:
+        print("ISEF_PROJECTS is empty.")
+        current_evaluation = {"error": "Failed to fetch ISEF data. No projects available for evaluation."}
+        return redirect(url_for("show_results"))
+
     evaluation = evaluate_inquiry_question(inquiry_question)
     suggestions = suggest_improvements(inquiry_question, evaluation["scores"])
 
@@ -116,6 +126,7 @@ def results():
         "suggestions": suggestions
     }
     return redirect(url_for("show_results"))
+
 
 @app.route("/results-data", methods=["GET"])
 def results_data():
