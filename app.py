@@ -2,7 +2,6 @@ import boto3
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from transformers import pipeline, AutoTokenizer
 import json
-import time
 
 # AWS S3 setup
 S3_BUCKET = "serp-app-bucket"
@@ -15,12 +14,12 @@ s3_client = boto3.client(
     aws_secret_access_key="zX5p5xhFXZJTyEAtlTgQKatrX/siQbacJohXaLNt"
 )
 
-# Hugging Face model setup
-tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-1.3B")
-tokenizer.pad_token = tokenizer.eos_token  # Set EOS token as padding token
+# Use a smaller Hugging Face model
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
+tokenizer.pad_token = tokenizer.eos_token  # Set padding token
 generator = pipeline(
     "text-generation",
-    model="EleutherAI/gpt-neo-1.3B",
+    model="EleutherAI/gpt-neo-125M",
     tokenizer=tokenizer,
     truncation=True,
     padding="max_length"
@@ -50,20 +49,24 @@ def evaluate_project_idea(title, description, objectives, methods, feasibility, 
         f"Pathway: {pathway}\n\nProvide detailed evaluation."
     )
     try:
-        # Truncate prompt if necessary
-        if len(prompt.split()) > 2000:  # Limit for safety
-            prompt = " ".join(prompt.split()[:2000])
+        # Truncate input to prevent model overload
+        max_input_tokens = 1024
+        if len(prompt.split()) > max_input_tokens:
+            prompt = " ".join(prompt.split()[:max_input_tokens])
 
         generated = generator(
             prompt,
-            max_new_tokens=150,  # Generate up to 150 tokens
+            max_new_tokens=50,  # Generate up to 50 tokens
             num_return_sequences=1,
             truncation=True
         )
         return generated[0]["generated_text"]
+    except MemoryError:
+        print("MemoryError: The model ran out of resources.")
+        return "Error: The evaluation could not be completed due to resource constraints."
     except Exception as e:
         print(f"Error generating evaluation: {e}")
-        return f"Error: {e}"
+        return "Error: The evaluation could not be completed. Please try again."
 
 @app.route("/")
 def home():
