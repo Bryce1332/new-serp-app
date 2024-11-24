@@ -136,11 +136,20 @@ def results():
 
     return redirect(url_for("show_results"))
 
-@app.route("/results-data")
+@app.route("/")  # Home page
+def home():
+    return render_template("project_evaluator_ui.html")
+
+@app.route("/results", methods=["POST"])  # Handles form submission
+def results():
+    # Handle form data and redirect
+    ...
+
+@app.route("/results-data")  # Serves evaluation results
 def results_data():
     return jsonify(current_evaluation)
 
-@app.route("/results")
+@app.route("/results")  # Displays the results page
 def show_results():
     return render_template("results_page.html")
 
