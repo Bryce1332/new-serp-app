@@ -82,16 +82,27 @@ def results():
     feasibility = request.form.get("feasibility", "")
     impact = request.form.get("impact", "")
     pathway = request.form.get("pathway", "")
-    current_evaluation = {
-        "evaluation": evaluate_project_idea(
-            title, description, objectives, methods, feasibility, impact, pathway
-        )
-    }
+
+    print(f"Received form data: Title={title}, Description={description}, Objectives={objectives}, Methods={methods}, Feasibility={feasibility}, Impact={impact}, Pathway={pathway}")
+
+    try:
+        current_evaluation = {
+            "evaluation": evaluate_project_idea(
+                title, description, objectives, methods, feasibility, impact, pathway
+            )
+        }
+        print(f"Generated evaluation: {current_evaluation}")
+    except Exception as e:
+        print(f"Error during evaluation: {e}")
+        current_evaluation = {"evaluation": f"Error: {e}"}
+
     return redirect(url_for("show_results"))
+
 
 @app.route("/results-data", methods=["GET"])
 def results_data():
     global current_evaluation
+    print("Request received at /results-data")
     if "evaluation" not in current_evaluation:
         print("Error: No evaluation data available.")
         return jsonify({"evaluation": "Failed to generate evaluation."}), 400
