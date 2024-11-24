@@ -13,16 +13,11 @@ s3_client = boto3.client(
     aws_secret_access_key="zX5p5xhFXZJTyEAtlTgQKatrX/siQbacJohXaLNt"
 )
 
-# Use a larger Hugging Face model for better suggestions
-tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-1.3B")
-tokenizer.pad_token = tokenizer.eos_token  # Ensure padding is handled
-generator = pipeline(
-    "text-generation",
-    model="EleutherAI/gpt-neo-1.3B",
-    tokenizer=tokenizer,
-    truncation=True,
-    padding=True
-)
+# Use a smaller model to reduce memory usage
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
+tokenizer.pad_token = tokenizer.eos_token
+generator = pipeline("text-generation", model="EleutherAI/gpt-neo-125M", tokenizer=tokenizer)
+
 app = Flask(__name__)
 current_evaluation = {}
 ISEF_PROJECTS = []
@@ -83,34 +78,28 @@ def suggest_improvements(inquiry_question, scores):
     """
     lowest_criteria = sorted(scores, key=scores.get)[:2]
     prompt = (
-        f"The inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n\n"
-        f"Inquiry Question: {inquiry_question}\n\n"
-        f"Generate exactly three improved versions of this question to address these weaknesses. "
-        f"Each version must be labeled as '1.', '2.', and '3.' and improve on {lowest_criteria[0]} and/or {lowest_criteria[1]}.\n"
-        f"Each suggestion must be clear and specific."
+        f"The inquiry question scored low on: {', '.join(lowest_criteria)}.\n"
+        f"Inquiry: {inquiry_question}\n"
+        f"Provide 3 improved versions of this question addressing these weaknesses, labeled as '1.', '2.', and '3.'."
     )
 
     try:
-        # Generate response
         generated = generator(
             prompt,
-            max_new_tokens=150,
+            max_new_tokens=100,  # Reduce output length
             num_return_sequences=1,
             truncation=True
         )
         response = generated[0]["generated_text"]
         print("Raw AI response:", response)
 
-        # Extract suggestions based on numbering
         suggestions = [
             line.strip() for line in response.split("\n") if line.strip().startswith(("1.", "2.", "3."))
         ]
 
-        # Ensure three suggestions are returned
         while len(suggestions) < 3:
             suggestions.append("No additional suggestion available.")
 
-        print("Parsed suggestions:", suggestions)
         return suggestions[:3]
     except Exception as e:
         print(f"Error generating suggestions: {e}")
