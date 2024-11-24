@@ -10,8 +10,8 @@ ISEF_PROJECTS_FILE = "isef-projects.json"
 # Configure AWS credentials
 s3_client = boto3.client(
     "s3",
-    aws_access_key_id="YOUR_AWS_ACCESS_KEY_ID",
-    aws_secret_access_key="YOUR_AWS_SECRET_ACCESS_KEY"
+    aws_access_key_id="AKIAXQIQAJ6R6M4JCJO7",
+    aws_secret_access_key="zX5p5xhFXZJTyEAtlTgQKatrX/siQbacJohXaLNt"
 )
 
 # Use a smaller Hugging Face model like DistilGPT-2
