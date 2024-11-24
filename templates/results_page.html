@@ -6,20 +6,18 @@
 </head>
 <body>
     <h1>Evaluation Results</h1>
-    {% if evaluation and evaluation.scores %}
+    {% if scores %}
         <h2>Scores Per Criterion:</h2>
         <ul>
-            {% for criterion, score in evaluation.scores.items() %}
+            {% for criterion, score in scores.items() %}
                 <li><strong>{{ criterion }}:</strong> {{ score }}/10</li>
             {% endfor %}
         </ul>
-        <h3>Average Score: {{ evaluation.average_score }}/10</h3>
+        <h3>Average Score: {{ average_score }}/10</h3>
         <h2>Suggestions to Improve Inquiry Question:</h2>
         <ol>
-            {% for suggestion in evaluation.suggestions %}
+            {% for suggestion in suggestions %}
                 <li>{{ suggestion }}</li>
-            {% else %}
-                <li>No suggestions available at this time.</li>
             {% endfor %}
         </ol>
     {% else %}
