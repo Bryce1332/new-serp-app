@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Evaluator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+        input, textarea, select, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Project Evaluator</h1>
+        <form id="projectForm">
+            <label for="pathway">Select Pathway:</label>
+            <select id="pathway" name="pathway" required>
+                <option value="">--Choose Pathway--</option>
+                <option value="science">Science</option>
+                <option value="engineering">Engineering</option>
+                <option value="computer science">Computer Science</option>
+            </select>
+
+            <label for="title">Project Title:</label>
+            <input type="text" id="title" name="title" placeholder="Enter your project title" required>
+
+            <label for="description">Project Description:</label>
+            <textarea id="description" name="description" rows="4" placeholder="Briefly describe your project" required></textarea>
+
+            <label for="objectives">Objectives (comma-separated):</label>
+            <input type="text" id="objectives" name="objectives" placeholder="Objective 1, Objective 2, ..." required>
+
+            <label for="methods">Methods (comma-separated):</label>
+            <input type="text" id="methods" name="methods" placeholder="Method 1, Method 2, ..." required>
+
+            <label for="feasibility">Feasibility:</label>
+            <textarea id="feasibility" name="feasibility" rows="2" placeholder="Describe resources, timeline, etc." required></textarea>
+
+            <label for="impact">Impact:</label>
+            <textarea id="impact" name="impact" rows="2" placeholder="Describe the potential impact" required></textarea>
+
+            <button type="submit">Evaluate Project</button>
+        </form>
+
+        <div id="results" class="results" style="display:none;">
+            <h2>Evaluation Results</h2>
+            <p id="evaluationOutput"></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('projectForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const pathway = document.getElementById('pathway').value;
+            const title = document.getElementById('title').value;
+            const description = document.getElementById('description').value;
+            const objectives = document.getElementById('objectives').value.split(',').map(obj => obj.trim());
+            const methods = document.getElementById('methods').value.split(',').map(method => method.trim());
+            const feasibility = document.getElementById('feasibility').value;
+            const impact = document.getElementById('impact').value;
+
+            const response = await fetch('/evaluate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    pathway,
+                    title,
+                    description,
+                    objectives,
+                    methods,
+                    feasibility,
+                    impact
+                })
+            });
+
+            const result = await response.json();
+            document.getElementById('evaluationOutput').innerText = result.evaluation;
+            document.getElementById('results').style.display = 'block';
+        });
+    </script>
+</body>
+</html>
