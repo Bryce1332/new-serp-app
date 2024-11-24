@@ -145,9 +145,14 @@ def results():
     # Handle form data and redirect
     ...
 
-@app.route("/results-data")  # Serves evaluation results
+@app.route("/results-data")
 def results_data():
+    global current_evaluation
+    # Ensure current_evaluation contains a valid key 'evaluation'
+    if "evaluation" not in current_evaluation:
+        return jsonify({"evaluation": "No evaluation data available"}), 400
     return jsonify(current_evaluation)
+
 
 @app.route("/results")  # Displays the results page
 def show_results():
