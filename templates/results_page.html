@@ -2,27 +2,4 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Evaluation Results</title>
-</head>
-<body>
-    <h1>Evaluation Results</h1>
-    {% if scores %}
-        <h2>Scores Per Criterion:</h2>
-        <ul>
-            {% for criterion, score in scores.items() %}
-                <li><strong>{{ criterion }}:</strong> {{ score }}/10</li>
-            {% endfor %}
-        </ul>
-        <h3>Average Score: {{ average_score }}/10</h3>
-        <h2>Suggestions to Improve Inquiry Question:</h2>
-        <ol>
-            {% for suggestion in suggestions %}
-                <li>{{ suggestion }}</li>
-            {% endfor %}
-        </ol>
-    {% else %}
-        <p>No results available. Please try again with a different inquiry question.</p>
-    {% endif %}
-    <a href="/">Back to Home</a>
-</body>
-</html>
+    <meta name="viewport" content="width=device-width,
