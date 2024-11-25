@@ -6,10 +6,24 @@
     <title>Project Evaluator</title>
 </head>
 <body>
-    <h1>Project Inquiry Question Evaluator</h1>
+    <h1>Project Idea Evaluator</h1>
     <form action="/results" method="post">
-        <label for="inquiry_question">Enter your research inquiry question:</label><br>
-        <textarea id="inquiry_question" name="inquiry_question" rows="5" cols="50" required></textarea><br><br>
+        <label for="title">Project Title:</label><br>
+        <input type="text" id="title" name="title" required><br><br>
+        
+        <label for="description">Project Description:</label><br>
+        <textarea id="description" name="description" rows="4" cols="50" required></textarea><br><br>
+        
+        <label for="inquiry_question">Inquiry Question:</label><br>
+        <textarea id="inquiry_question" name="inquiry_question" rows="3" cols="50" required></textarea><br><br>
+        
+        <label for="pathway">Select Pathway:</label><br>
+        <select id="pathway" name="pathway" required>
+            <option value="science">Science</option>
+            <option value="engineering">Engineering</option>
+            <option value="computer science">Computer Science</option>
+        </select><br><br>
+
         <button type="submit">Evaluate</button>
     </form>
 </body>
