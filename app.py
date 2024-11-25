@@ -77,10 +77,16 @@ def suggest_improvements(inquiry_question, scores):
     # Find the two lowest-scoring criteria
     lowest_criteria = sorted(scores, key=scores.get)[:2]
     prompt = (
-        f"The inquiry question scored low on: {', '.join(lowest_criteria)}.\n\n"
+        f"The inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
-        f"Provide exactly 3 improved versions of this question, addressing these weaknesses. "
-        f"Label them as '1.', '2.', and '3.'. Ensure each suggestion is concise, actionable, and well-defined."
+        f"Based on this, generate exactly 3 improved versions of the question. Each suggestion should:\n"
+        f"- Address the weaknesses in the criteria: {', '.join(lowest_criteria)}.\n"
+        f"- Be concise (under 25 words).\n"
+        f"Example Suggestions:\n"
+        f"1. How does [variable] affect [outcome] under [condition]?\n"
+        f"2. What is the relationship between [variable A] and [variable B] in [context]?\n"
+        f"3. How can [method] improve [process] to achieve [goal]?\n\n"
+        f"Now provide your suggestions labeled as '1.', '2.', and '3.'"
     )
 
     try:
