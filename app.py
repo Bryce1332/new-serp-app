@@ -1,105 +1,149 @@
-from flask import Flask, request, render_template, jsonify, redirect, url_for
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
+import os
+import re
+from flask import Flask, request, jsonify, render_template, redirect, url_for
+from transformers import pipeline, AutoTokenizer
 import boto3
 import json
-import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env
+# Load environment variables
 load_dotenv()
 
-# AWS Credentials from environment variables
-AWS_ACCESS_KEY_ID = os.getenv("AKIAXQIQAJ6R6M4JCJO7")
-AWS_SECRET_ACCESS_KEY = os.getenv("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")
-AWS_REGION = os.getenv("us-west-1")
-
-
-tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
-model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
-
-generator = pipeline("text2text-generation", model=model, tokenizer=tokenizer)
-
-
 # AWS S3 Configuration
-S3_BUCKET = "serp-app-bucket"
+S3_BUCKET = os.getenv("serp-app-bucket   ")
+AWS_ACCESS_KEY = os.getenv("AKIAXQIQAJ6R6M4JCJO7")
+AWS_SECRET_KEY = os.getenv("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")
 ISEF_PROJECTS_FILE = "isef_projects.json"
 
-# Initialize S3 client with credentials
+# S3 Client
 s3_client = boto3.client(
     "s3",
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY,
+)
+
+# Hugging Face Model Configuration
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+tokenizer.pad_token = tokenizer.eos_token  # Ensure padding token is set
+generator = pipeline(
+    "text-generation",
+    model="gpt2",
+    tokenizer=tokenizer,
+    truncation=True,
+    padding=True,
 )
 
 app = Flask(__name__)
+current_evaluation = {}
 
-# Cache the ISEF data in memory to avoid repeated S3 requests
-isef_data_cache = None
-
-def load_isef_data():
-    """Load and cache ISEF data."""
-    global isef_data_cache
-    if isef_data_cache is None:
-        try:
-            response = s3_client.get_object(Bucket=S3_BUCKET, Key=ISEF_PROJECTS_FILE)
-            isef_data_cache = json.loads(response["Body"].read())
-            isef_data_cache = [
-                {"title": project["title"], "abstract": project["abstract"]}
-                for project in isef_data_cache
-            ]
-            print(f"Loaded {len(isef_data_cache)} projects.")
-        except Exception as e:
-            print(f"Error fetching ISEF data: {e}")
-            isef_data_cache = []
-    return isef_data_cache
-
-
+def fetch_isef_data():
+    """Fetch ISEF data from S3."""
+    try:
+        response = s3_client.get_object(Bucket=S3_BUCKET, Key=ISEF_PROJECTS_FILE)
+        isef_projects = json.loads(response["Body"].read())
+        return isef_projects
+    except Exception as e:
+        print(f"Error fetching ISEF data: {e}")
+        return []
 
 def evaluate_inquiry_question(inquiry_question):
-    """Evaluate the inquiry question against ISEF data."""
-    isef_data = load_isef_data()
+    """Evaluate an inquiry question using AI for each criterion."""
+    isef_projects = fetch_isef_data()
+    if not isef_projects:
+        return {"scores": {}, "average_score": 0, "reasons": {}}
 
-    # Basic evaluation logic based on ISEF data
-    scores = {
-        "Originality": 8,
-        "Impactfulness": 7,
-        "Feasibility": 6,
-        "Quantifiable Data": 5,
-        "Specificity": 8,
+    # Define the criteria and their prompts
+    criteria_prompts = {
+        "Originality": (
+            f"Evaluate the originality of the following research inquiry question:\n\n"
+            f"Inquiry Question: {inquiry_question}\n\n"
+            f"Originality refers to how novel and unique the question is compared to common scientific research topics.\n"
+            f"Score the originality on a scale of 1 to 10 and provide a brief reason for the score."
+        ),
+        "Impactfulness": (
+            f"Evaluate the impactfulness of the following research inquiry question:\n\n"
+            f"Inquiry Question: {inquiry_question}\n\n"
+            f"Impactfulness refers to how significant the potential scientific, societal, or environmental impact of answering this question would be.\n"
+            f"Score the impactfulness on a scale of 1 to 10 and provide a brief reason for the score."
+        ),
+        "Feasibility": (
+            f"Evaluate the feasibility of the following research inquiry question:\n\n"
+            f"Inquiry Question: {inquiry_question}\n\n"
+            f"Feasibility refers to whether a high school student could realistically complete a project addressing this question within two months using commonly available resources.\n"
+            f"Score the feasibility on a scale of 1 to 10 and provide a brief reason for the score."
+        ),
+        "Quantifiable Data": (
+            f"Evaluate the ability of the following research inquiry question to generate quantifiable data:\n\n"
+            f"Inquiry Question: {inquiry_question}\n\n"
+            f"Quantifiable data refers to measurable outcomes or results that can be analyzed scientifically.\n"
+            f"Score the question on a scale of 1 to 10 and provide a brief reason for the score."
+        ),
+        "Specificity": (
+            f"Evaluate the specificity of the following research inquiry question:\n\n"
+            f"Inquiry Question: {inquiry_question}\n\n"
+            f"Specificity refers to how focused and well-defined the question is.\n"
+            f"Score the specificity on a scale of 1 to 10 and provide a brief reason for the score."
+        ),
     }
-    average_score = sum(scores.values()) / len(scores)
 
-    return {"scores": scores, "average_score": round(average_score, 2)}
+    scores = {}
+    reasons = {}
+
+    try:
+        for criterion, prompt in criteria_prompts.items():
+            # Generate AI response for each criterion
+            response = generator(
+                prompt,
+                max_new_tokens=150,
+                num_return_sequences=1,
+                truncation=True,
+            )
+            ai_output = response[0]["generated_text"]
+
+            # Extract the score and reason from the AI response
+            score_match = re.search(r"\b(\d{1,2})\b", ai_output)
+            reason_match = re.search(r"\b(?:Reason|Explanation|Because): (.+)", ai_output, re.IGNORECASE)
+
+            score = int(score_match.group(1)) if score_match else 0
+            reason = reason_match.group(1).strip() if reason_match else "No reason provided."
+
+            # Store the score and reason
+            scores[criterion] = min(max(score, 1), 10)  # Ensure score is between 1 and 10
+            reasons[criterion] = reason
+
+        # Calculate average score
+        average_score = sum(scores.values()) / len(scores)
+
+        return {"scores": scores, "average_score": average_score, "reasons": reasons}
+
+    except Exception as e:
+        print(f"Error during AI-driven evaluation: {e}")
+        return {"scores": {}, "average_score": 0, "reasons": {}}
 
 def suggest_improvements(inquiry_question, scores):
     """Generate three improved versions of the inquiry question."""
     # Find the two lowest-scoring criteria
     lowest_criteria = sorted(scores, key=scores.get)[:2]
     prompt = (
-        f"The inquiry question scored low on the criteria: {', '.join(lowest_criteria)}.\n\n"
+        f"The following research inquiry question needs improvement:\n\n"
         f"Inquiry Question: {inquiry_question}\n\n"
-        f"Based on this, generate exactly 3 improved versions of the question. Each suggestion should:\n"
-        f"- Address the weaknesses in the criteria: {', '.join(lowest_criteria)}.\n"
-        f"- Be concise (under 25 words).\n"
-        f"Example Suggestions:\n"
-        f"1. How does [variable] affect [outcome] under [condition]?\n"
-        f"2. What is the relationship between [variable A] and [variable B] in [context]?\n"
-        f"3. How can [method] improve [process] to achieve [goal]?\n\n"
-        f"Now provide your suggestions labeled as '1.', '2.', and '3.'"
+        f"Criteria scoring low: {', '.join(lowest_criteria)}\n\n"
+        f"Instructions:\n"
+        f"- Generate exactly 3 improved versions of the question.\n"
+        f"- Each version must address the weaknesses in {', '.join(lowest_criteria)}.\n"
+        f"- Be concise (less than 25 words).\n"
+        f"- Use clear and actionable language.\n\n"
+        f"Now, provide your 3 suggestions labeled as '1.', '2.', and '3.'."
     )
 
     try:
         generated = generator(
             prompt,
-            max_new_tokens=150,  # Ensure suggestions are concise
+            max_new_tokens=150,
             num_return_sequences=1,
             truncation=True,
         )
         response = generated[0]["generated_text"]
-
-        # Debugging: Print the raw AI response
-        print(f"Raw AI response: {response}")
 
         # Extract suggestions labeled '1.', '2.', and '3.'
         suggestions = [
@@ -110,9 +154,6 @@ def suggest_improvements(inquiry_question, scores):
         while len(suggestions) < 3:
             suggestions.append("No additional suggestion available.")
 
-        # Remove any placeholder-like suggestions (e.g., "2.")
-        suggestions = [s if len(s) > 3 else "No additional suggestion available." for s in suggestions]
-
         return suggestions[:3]
     except Exception as e:
         print(f"Error generating suggestions: {e}")
@@ -122,30 +163,38 @@ def suggest_improvements(inquiry_question, scores):
 def home():
     return render_template("project_evaluator_ui.html")
 
-
 @app.route("/results", methods=["POST"])
 def results():
-    inquiry_question = request.form.get("inquiry_question", "").strip()
+    global current_evaluation
+    inquiry_question = request.form.get("inquiry_question", "")
+    print(f"Received inquiry question: {inquiry_question}")
+
     try:
-        # Evaluate the inquiry question
         evaluation = evaluate_inquiry_question(inquiry_question)
-        # Generate suggestions based on the evaluation
         suggestions = suggest_improvements(inquiry_question, evaluation["scores"])
-        return render_template(
-            "results_page.html",
-            scores=evaluation["scores"],
-            average_score=evaluation["average_score"],
-            suggestions=suggestions,
-        )
+        current_evaluation = {"evaluation": evaluation, "suggestions": suggestions}
+        print(f"Scores: {evaluation['scores']}")
+        print(f"Reasons: {evaluation['reasons']}")
+        print(f"Average Score: {evaluation['average_score']}")
     except Exception as e:
         print(f"Error during evaluation: {e}")
-        return render_template(
-            "results_page.html",
-            scores={},
-            average_score=0,
-            suggestions=["Error: Could not generate suggestions."] * 3,
-        )
+        current_evaluation = {
+            "evaluation": {"scores": {}, "average_score": 0, "reasons": {}},
+            "suggestions": ["Error: Could not generate suggestions."] * 3,
+        }
 
+    return redirect(url_for("show_results"))
+
+@app.route("/results-data", methods=["GET"])
+def results_data():
+    global current_evaluation
+    if "evaluation" not in current_evaluation:
+        return jsonify({"error": "No evaluation data available."}), 400
+    return jsonify(current_evaluation)
+
+@app.route("/results")
+def show_results():
+    return render_template("results_page.html")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
