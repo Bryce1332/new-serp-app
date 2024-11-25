@@ -37,14 +37,23 @@ app = Flask(__name__)
 current_evaluation = {}
 
 def fetch_isef_data():
-    """Fetch ISEF data from S3."""
+    """Fetch and validate ISEF data from S3."""
     try:
         response = s3_client.get_object(Bucket=S3_BUCKET, Key=ISEF_PROJECTS_FILE)
         isef_projects = json.loads(response["Body"].read())
-        return isef_projects
+        
+        # Validate the data: Ensure all projects have titles and abstracts
+        valid_projects = [
+            proj for proj in isef_projects
+            if isinstance(proj.get("title"), str) and isinstance(proj.get("abstract"), str)
+        ]
+        
+        print(f"Loaded {len(valid_projects)} valid projects from ISEF database.")
+        return valid_projects
     except Exception as e:
         print(f"Error fetching ISEF data: {e}")
         return []
+
 
 def evaluate_inquiry_question(inquiry_question):
     """Evaluate an inquiry question using AI for each criterion."""
