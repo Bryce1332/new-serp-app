@@ -27,23 +27,33 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 app = Flask(__name__)
 current_evaluation = {}
 
+
 def fetch_isef_data(query):
-    """Fetch and validate ISEF data from S3."""
+    """Fetch relevant ISEF database entries for a project idea to assist in evaluation."""
+    if not query:
+        print("Error: Query is required to fetch ISEF data.")
+        return []
+
     try:
         response = s3_client.get_object(Bucket=S3_BUCKET, Key=ISEF_PROJECTS_FILE)
         isef_projects = json.loads(response["Body"].read())
 
-        # Filter relevant projects
+        # Debugging: Check if data loaded correctly
+        if not isef_projects:
+            print("Error: No data loaded from S3.")
+            return []
+
+        # Search for relevant projects
         relevant_projects = [
-            proj for proj in isef_projects
-            if query.lower() in proj.get("title", "").lower()
+            project for project in isef_projects if query.lower() in project.get("title", "").lower()
         ]
 
-        print(f"Loaded {len(relevant_projects)} relevant projects from ISEF database.")
+        print(f"Found {len(relevant_projects)} relevant projects.")
         return relevant_projects
     except Exception as e:
         print(f"Error fetching ISEF data: {e}")
         return []
+
 
 def evaluate_project_idea(title, description, inquiry_question, pathway):
     """Evaluate a project idea based on various criteria."""
