@@ -2,4 +2,33 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluation Results</title>
+</head>
+<body>
+    <h1>Evaluation Results</h1>
+    <div id="results-container">
+        <p>Loading...</p>
+    </div>
+    <button onclick="window.location.href='/'">Back to Home</button>
+
+    <script>
+        fetch("/results-data")
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById("results-container");
+                const evaluation = data.evaluation;
+
+                if (!evaluation || evaluation === "Error: Could not generate evaluation.") {
+                    container.innerHTML = "<p>Evaluation could not be generated. Please try again.</p>";
+                    return;
+                }
+
+                container.innerHTML = `<pre>${evaluation}</pre>`;
+            })
+            .catch(err => {
+                document.getElementById("results-container").innerHTML = "<p>Error fetching results.</p>";
+            });
+    </script>
+</body>
+</html>
