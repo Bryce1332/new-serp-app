@@ -1,5 +1,6 @@
 import os
 import json
+import gzip
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 import openai
 import boto3
@@ -12,7 +13,7 @@ load_dotenv()
 S3_BUCKET = os.getenv("S3_BUCKET")
 AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-ISEF_PROJECTS_FILE = "isef_projects.json"
+ISEF_PROJECTS_FILE = "isef_projects.json.gz"  # Use compressed format
 
 # S3 Client
 s3_client = boto3.client(
@@ -35,13 +36,10 @@ def fetch_isef_data(query):
         return []
 
     try:
+        # Fetch compressed JSON from S3
         response = s3_client.get_object(Bucket=S3_BUCKET, Key=ISEF_PROJECTS_FILE)
-        isef_projects = json.loads(response["Body"].read())
-
-        # Debugging: Check if data loaded correctly
-        if not isef_projects:
-            print("Error: No data loaded from S3.")
-            return []
+        compressed_data = response["Body"].read()
+        isef_projects = json.loads(gzip.decompress(compressed_data))
 
         # Search for relevant projects
         relevant_projects = [
@@ -56,12 +54,18 @@ def fetch_isef_data(query):
 
 
 def evaluate_project_idea(title, description, inquiry_question, pathway):
-    """Evaluate a project idea based on various criteria."""
+    """Evaluate a project idea based on various criteria using OpenAI."""
     isef_projects = fetch_isef_data(title)
+    if not isef_projects:
+        return "Error: No relevant projects found in the ISEF database."
+
+    # Limit the number of projects included in the summary
     isef_summary = "\n".join([
-        f"Title: {proj['title']}\nAbstract: {proj['abstract']}" for proj in isef_projects
+        f"Title: {proj['title']}\nAbstract: {proj['abstract']}"
+        for proj in isef_projects[:5]  # Limit to top 5 projects
     ])
 
+    # Construct evaluation prompt
     prompt = (
         f"Evaluate the following research project idea:\n\n"
         f"Title: {title}\nDescription: {description}\nInquiry Question: {inquiry_question}\n\n"
@@ -69,30 +73,35 @@ def evaluate_project_idea(title, description, inquiry_question, pathway):
         f"Here are similar projects from a database:\n{isef_summary}\n\n"
         f"Provide a score (1-10) for the following criteria:\n"
         f"1. Originality\n2. Impactfulness\n3. Feasibility\n4. Quantifiable Data\n5. Specificity\n\n"
-        f"Also, provide a reason for each score. Finally, generate three improved versions of the inquiry question."
+        f"Provide a reason for each score. Finally, generate three improved versions of the inquiry question."
     )
 
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4",
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "system", "content": "You are an AI project evaluator."},
+                      {"role": "user", "content": prompt}],
+            max_tokens=700,  # Limit token usage
+            temperature=0.7,
         )
         return response["choices"][0]["message"]["content"]
     except Exception as e:
         print(f"Error generating evaluation: {e}")
         return "Error: Could not generate evaluation."
 
+
 @app.route("/")
 def home():
     return render_template("project_evaluator_ui.html")
 
+
 @app.route("/results", methods=["POST"])
 def results():
     global current_evaluation
-    title = request.form.get("title", "")
-    description = request.form.get("description", "")
-    inquiry_question = request.form.get("inquiry_question", "")
-    pathway = request.form.get("pathway", "")
+    title = request.form.get("title", "").strip()
+    description = request.form.get("description", "").strip()
+    inquiry_question = request.form.get("inquiry_question", "").strip()
+    pathway = request.form.get("pathway", "").strip()
 
     print(f"Received project data: Title={title}, Description={description}, Inquiry Question={inquiry_question}, Pathway={pathway}")
 
@@ -105,6 +114,7 @@ def results():
 
     return redirect(url_for("show_results"))
 
+
 @app.route("/results-data", methods=["GET"])
 def results_data():
     global current_evaluation
@@ -112,9 +122,11 @@ def results_data():
         return jsonify({"error": "No evaluation data available."}), 400
     return jsonify(current_evaluation)
 
+
 @app.route("/results")
 def show_results():
     return render_template("results_page.html")
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
