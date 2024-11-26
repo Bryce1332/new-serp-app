@@ -30,22 +30,22 @@ current_evaluation = {}
 
 
 def fetch_isef_data(query):
-    """Fetch relevant ISEF database entries for a project idea to assist in evaluation."""
     if not query:
         print("Error: Query is required to fetch ISEF data.")
         return []
 
     try:
-        # Fetch compressed JSON from S3
         response = s3_client.get_object(Bucket=S3_BUCKET, Key=ISEF_PROJECTS_FILE)
         compressed_data = response["Body"].read()
-        isef_projects = json.loads(gzip.decompress(compressed_data))
+
+        # Decompress the .gz file
+        decompressed_data = gzip.decompress(compressed_data)
+        isef_projects = json.loads(decompressed_data)
 
         # Search for relevant projects
         relevant_projects = [
             project for project in isef_projects if query.lower() in project.get("title", "").lower()
         ]
-
         print(f"Found {len(relevant_projects)} relevant projects.")
         return relevant_projects
     except Exception as e:
