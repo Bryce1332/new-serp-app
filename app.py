@@ -44,22 +44,23 @@ def fetch_isef_data(query):
         isef_projects = json.loads(gzip.decompress(response["Body"].read()))
         print(f"Loaded {len(isef_projects)} projects.")
 
-        # Debugging: Log the query and first few titles
-        print(f"Query: {query}")
-        for project in isef_projects[:5]:
-            print(f"Title: {project.get('title', 'No title')}")
-
         # Improved matching logic using difflib
         titles = [project.get("title", "") for project in isef_projects]
         close_matches = get_close_matches(query, titles, n=5, cutoff=0.3)
         print(f"Close matches: {close_matches}")
 
         relevant_projects = [proj for proj in isef_projects if proj.get("title", "") in close_matches]
+
+        # Truncate abstracts to reduce size
+        for proj in relevant_projects:
+            proj["abstract"] = proj.get("abstract", "")[:300] + "..."  # Limit abstract length to 300 characters
+
         print(f"Found {len(relevant_projects)} relevant projects.")
         return relevant_projects
     except Exception as e:
         print(f"Error fetching ISEF data: {e}")
         return []
+
 
 
 def evaluate_project_idea(title, description, inquiry_question, pathway):
