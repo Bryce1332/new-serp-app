@@ -36,9 +36,15 @@ def fetch_isef_data(query):
 
     try:
         print(f"Fetching data for query: {query}")
-        response = s3_client.get_object(Bucket=os.getenv("S3_BUCKET"), Key="isef_projects.json.gz")
-        isef_projects = json.loads(response["Body"].read())
+        bucket = os.getenv("S3_BUCKET")
+        print(f"Using bucket: {bucket}")
+        response = s3_client.get_object(Bucket=bucket, Key="isef_projects.json.gz")
+
+        print("S3 Response Metadata:", response["ResponseMetadata"])
+        file_content = gzip.decompress(response["Body"].read())  # Ensure gzip decompression
+        isef_projects = json.loads(file_content)
         print(f"Loaded {len(isef_projects)} projects.")
+
         relevant_projects = [
             project for project in isef_projects if query.lower() in project.get("title", "").lower()
         ]
