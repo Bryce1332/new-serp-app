@@ -86,6 +86,9 @@ def evaluate_project_idea(title, description, inquiry_question, pathway):
     )
 
     try:
+        print("Sending prompt to OpenAI API:")
+        print(prompt)  # Debugging: Print the full prompt to verify correctness
+
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[{"role": "system", "content": "You are an AI project evaluator."},
@@ -93,10 +96,12 @@ def evaluate_project_idea(title, description, inquiry_question, pathway):
             max_tokens=700,  # Limit token usage
             temperature=0.7,
         )
+        print("OpenAI API response received.")
         return response["choices"][0]["message"]["content"]
     except Exception as e:
         print(f"Error generating evaluation: {e}")
         return "Error: Could not generate evaluation."
+
 
 
 @app.route("/")
