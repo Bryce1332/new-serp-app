@@ -35,22 +35,18 @@ def fetch_isef_data(query):
         return []
 
     try:
-        response = s3_client.get_object(Bucket=S3_BUCKET, Key=ISEF_PROJECTS_FILE)
-        compressed_data = response["Body"].read()
-
-        # Decompress the .gz file
-        decompressed_data = gzip.decompress(compressed_data)
-        isef_projects = json.loads(decompressed_data)
-
-        # Search for relevant projects
+        print(f"Fetching data for query: {query}")
+        response = s3_client.get_object(Bucket=os.getenv("S3_BUCKET"), Key="isef_projects.json.gz")
+        isef_projects = json.loads(response["Body"].read())
+        print(f"Loaded {len(isef_projects)} projects.")
         relevant_projects = [
             project for project in isef_projects if query.lower() in project.get("title", "").lower()
         ]
-        print(f"Found {len(relevant_projects)} relevant projects.")
         return relevant_projects
     except Exception as e:
         print(f"Error fetching ISEF data: {e}")
         return []
+
 
 
 def evaluate_project_idea(title, description, inquiry_question, pathway):
