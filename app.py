@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for
 import openai
 import boto3
 from dotenv import load_dotenv
+from difflib import get_close_matches
 
 # Load environment variables
 load_dotenv()
@@ -30,36 +31,42 @@ current_evaluation = {}
 
 
 def fetch_isef_data(query):
+    """Fetch relevant ISEF database entries for a project idea."""
     if not query:
         print("Error: Query is required to fetch ISEF data.")
         return []
 
     try:
-        print(f"Fetching data for query: {query}")
-        bucket = os.getenv("S3_BUCKET")
-        print(f"Using bucket: {bucket}")
-        response = s3_client.get_object(Bucket=bucket, Key="isef_projects.json.gz")
+        bucket_name = os.getenv("S3_BUCKET")
+        print(f"Using bucket: {bucket_name}")
 
-        print("S3 Response Metadata:", response["ResponseMetadata"])
-        file_content = gzip.decompress(response["Body"].read())  # Ensure gzip decompression
-        isef_projects = json.loads(file_content)
+        response = s3_client.get_object(Bucket=bucket_name, Key=ISEF_PROJECTS_FILE)
+        isef_projects = json.loads(gzip.decompress(response["Body"].read()))
         print(f"Loaded {len(isef_projects)} projects.")
 
-        relevant_projects = [
-            project for project in isef_projects if query.lower() in project.get("title", "").lower()
-        ]
+        # Debugging: Log the query and first few titles
+        print(f"Query: {query}")
+        for project in isef_projects[:5]:
+            print(f"Title: {project.get('title', 'No title')}")
+
+        # Improved matching logic using difflib
+        titles = [project.get("title", "") for project in isef_projects]
+        close_matches = get_close_matches(query, titles, n=5, cutoff=0.3)
+        print(f"Close matches: {close_matches}")
+
+        relevant_projects = [proj for proj in isef_projects if proj.get("title", "") in close_matches]
+        print(f"Found {len(relevant_projects)} relevant projects.")
         return relevant_projects
     except Exception as e:
         print(f"Error fetching ISEF data: {e}")
         return []
 
 
-
 def evaluate_project_idea(title, description, inquiry_question, pathway):
     """Evaluate a project idea based on various criteria using OpenAI."""
     isef_projects = fetch_isef_data(title)
     if not isef_projects:
-        return "Error: No relevant projects found in the ISEF database."
+        return "No relevant projects were found. Please refine your query or try again with a different title."
 
     # Limit the number of projects included in the summary
     isef_summary = "\n".join([
